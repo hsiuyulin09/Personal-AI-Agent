@@ -1,0 +1,17 @@
+provider: openai
+
+providers:
+  groq:
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: groq_api_key
+    model: llama-3.3-70b-versatile
+
+  openai:
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+    model: gpt-4o
+
+generation:
+  temperature: 0.8
+  max_tokens: 2048
+  presence_penalty: 1.0
