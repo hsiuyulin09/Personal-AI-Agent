@@ -11,7 +11,7 @@ from opentelemetry.trace import Status, StatusCode
 CURRENT_DIR = Path(__file__).parent
 
 
-def load_config(config_path="config.yaml"):
+def load_config(config_path="configs/llm_config.yaml"):
     # 從 llm_client.py 同級目錄讀取 .env
     load_dotenv(CURRENT_DIR / ".env")
 

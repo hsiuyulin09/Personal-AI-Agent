@@ -9,22 +9,10 @@ CURRENT_DIR = Path(__file__).parent
 
 # 每個 script 只允許固定參數，避免 LLM 自行發明參數或執行非預期操作
 SCRIPT_ARGUMENT_ORDER = {
-    "employee_free_ticket_points_lookup": [
-        "seniority_years",
-        "target_points",
-    ],
-    "preferential_ticket_quota_lookup": [
-        "identity_group",
-        "discount_type",
-        "cabin",
-        "employee_status",
-        "seniority_months",
-        "seniority_years",
-    ],
-    "official_seal_specification_lookup": [
-        "seal_type",
-        "applicable_to",
-    ],
+    # "table 讀取 script": [
+    #     "欄位一",
+    #     "欄位二",
+    # ]
 }
 
 
