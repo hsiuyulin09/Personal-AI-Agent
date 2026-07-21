@@ -1,8 +1,8 @@
 from llm_client import create_client, load_config
 from trace_utils import setup_tracer, TokenTracker # opentelemetry trace tools
-from load_skills import load_skill_metadata, format_skill_metadata_for_prompt
-from full_table_responses import load_full_table_options
-from skill_orchestrator import run_agent_turn
+from skill_system.load_skills import load_skill_metadata, format_skill_metadata_for_prompt
+from skill_system.full_table_responses import load_full_table_options
+from skill_system.skill_orchestrator import run_agent_turn
 
 config, provider_config, api_key = load_config()
 client = create_client(provider_config, api_key)
