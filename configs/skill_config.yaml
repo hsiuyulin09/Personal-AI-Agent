@@ -1,0 +1,15 @@
+# script allowlist 的參數順序。script_id 必須和 SKILL.md metadata 中的 scripts key 完全一致。
+script_argument_order: {
+#   some_lookup_script:
+#     - field_1
+#     - field_2
+}
+
+# 完整表格查詢的直接回覆。key 必須和 table metadata.reference_key 完全一致。
+full_table_direct_responses: {
+  # some_table_reference_key: "完整 XXX 表請至對應文件查詢。"
+}
+
+full_table_substitute_response: "完整表格內容請至對應文件查詢。"
+
+script_timeout_seconds: 10

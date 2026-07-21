@@ -4,17 +4,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+from skill_system.skill_config import load_skill_config
+
 
 CURRENT_DIR = Path(__file__).parent
 
 # 每個 script 只允許固定參數，避免 LLM 自行發明參數或執行非預期操作
-SCRIPT_ARGUMENT_ORDER = {
-    # "table 讀取 script": [
-    #     "欄位一",
-    #     "欄位二",
-    # ]
-}
-
+SKILL_CONFIG = load_skill_config()
+SCRIPT_ARGUMENT_ORDER = SKILL_CONFIG.get("script_argument_order", {})
+SCRIPT_TIMEOUT_SECONDS = SKILL_CONFIG.get("script_timeout_seconds", 10)
 
 def run_skill_script(skill, script_id, arguments):
     # 只執行 SKILL.md 中註冊、且本檔 allowlist 有定義參數順序的 script。
@@ -48,7 +46,7 @@ def run_skill_script(skill, script_id, arguments):
         capture_output=True,
         text=True,
         encoding="utf-8",
-        timeout=10,
+        timeout=SCRIPT_TIMEOUT_SECONDS,
         env=env,
     )
 

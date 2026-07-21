@@ -1,15 +1,15 @@
 import json
 from pathlib import Path
 
+from skill_system.skill_config import load_skill_config
+
 CURRENT_DIR = Path(__file__).parent
 
 # json table 引導 user 的 reponse 列表 # 新增 json table 時直接在此更新即可
-FULL_TABLE_DIRECT_RESPONSES = {
-    
-}
-
+SKILL_CONFIG = load_skill_config()
+FULL_TABLE_DIRECT_RESPONSES = SKILL_CONFIG.get("full_table_direct_responses", {})
 # 替代性回答
-SUBSTITUTE_RESPONSE = "完整表格內容請至對應文件查詢。"
+SUBSTITUTE_RESPONSE = SKILL_CONFIG.get("full_table_substitute_response", "完整表格內容請至對應文件查詢。")
 
 def load_full_table_options(skill_dir="skills"):
     options = []
