@@ -1,6 +1,6 @@
 from llm_client import call_llm
 from trace_utils import trace_system # opentelemetry trace tools
-from agent_prompts import build_context_route_messages, build_hint_messages, build_resource_route_messages, build_context_builder_messages, build_responder_messages
+from skill_system.skill_prompts import build_context_route_messages, build_hint_messages, build_resource_route_messages, build_context_builder_messages, build_responder_messages
 from skill_system.load_skills import get_skill_by_id, load_full_skill, load_skill_reference
 from llm_chat import run_llm_chat_turn
 from skill_system.skill_tools import run_skill_script
