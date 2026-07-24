@@ -141,7 +141,7 @@ def build_context_builder_messages(user_query, skill_id, full_skill, reference_c
 
         selected_context 必須是 str。
         reason 必須是 1 到 75 個字的 str。
-""").strip()
+    """).strip()
 
     trigger_input = {
         "skill_id": skill_id,
@@ -184,13 +184,4 @@ def build_responder_messages(user_query, context_result):
     return [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": format_prompt_data(responder_input)},
-    ]
-
-
-def build_llm_messages(user_query):
-    system_prompt = "你是一名專業助理，請使用繁體中文回答使用者的問題並進行一般對話。"
-
-    return [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_query}
     ]
