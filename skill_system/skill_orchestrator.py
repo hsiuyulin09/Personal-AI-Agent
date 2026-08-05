@@ -1,3 +1,5 @@
+from contextlib import nullcontext
+
 from llm_client import call_llm
 from trace_utils import trace_system # opentelemetry trace tools
 from skill_system.skill_prompts import build_context_route_messages, build_hint_messages, build_resource_route_messages, build_context_builder_messages, build_responder_messages
@@ -8,8 +10,7 @@ from skill_system.skill_models import ContextRouteResult, HintResult, ResourceRo
 from skill_system.full_table_responses import full_table_hint_response
 
 
-def run_agent_turn(
-    user_query,
+def run_skill_agent_turn(user_query,
     memory,
     previous_skill_id,
     client,
@@ -23,12 +24,15 @@ def run_agent_turn(
     skill_metadata,
     full_table_options,
     token_tracker,
+    manage_trace=True,
 ):
     response = None
     selected_skill = None
     builder_result = None
 
-    with trace_system(tracer, token_tracker, provider_name, model):
+    trace_context = trace_system(tracer, token_tracker, provider_name, model) if manage_trace else nullcontext()
+
+    with trace_context:
 
         if memory and previous_skill_id:
             # context_route: 判斷本次 Query 是否延續上一輪未完成的問題
