@@ -6,7 +6,7 @@ from skill_system.skill_prompts import build_hint_messages, build_resource_route
 from skill_system.load_skills import get_skill_by_id, load_full_skill, load_skill_reference
 from llm_chat import run_llm_chat_turn
 from skill_system.skill_tools import run_skill_script
-from skill_system.skill_models import HintResult, ResourceRouteResult, ContextBuilderResult
+from skill_system.skill_schemas import HintResult, ResourceRouteResult, ContextBuilderResult
 from skill_system.full_table_responses import full_table_hint_response
 
 
