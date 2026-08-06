@@ -9,12 +9,6 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(strict=True, extra="forbid")
 
 
-class ContextRouteResult(StrictModel):
-    # Context Route LLM: 判斷本次 query 是否延續上一輪對話
-    continuation: bool
-    reason: str = Field(min_length=1)
-
-
 class HintResult(StrictModel):
     # Hint LLM: 判斷服務範圍，並從 metadata 選出單一 skill
     scope: bool

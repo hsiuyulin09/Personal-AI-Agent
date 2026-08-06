@@ -6,33 +6,6 @@ def format_prompt_data(data):
     return json.dumps(data, ensure_ascii=False, indent=2)
 
 
-def build_context_route_messages(user_query, memory, previous_skill_id=None):
-    # Context Route 判斷本次 query 是否延續上一輪
-    system_prompt = dedent("""
-        你是 Context Route node，請根據對話紀錄、上一輪 skill_id 與本次 user query，判斷本次 query 是否延續上一輪對話。
-        只輸出一個 JSON object，不要輸出 Markdown 或其他文字。
-        輸出格式：
-        {
-            "continuation": true,
-            "reason": "75 個字以內的判斷原因"
-        }
-
-        continuation 必須是 boolean。
-        reason 必須是 1 到 75 個字的 str。
-        """).strip()
-
-    route_input = {
-        "previous_skill_id": previous_skill_id,
-        "memory": memory,
-        "user_query": user_query,
-    }
-
-    return [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": format_prompt_data(route_input)},
-    ]
-
-
 def build_hint_messages(user_query, skill_metadata, full_table_options=None):
     # Hint 只讀 metadata，判斷服務範圍並選出 skill_id
     system_prompt = dedent("""
@@ -73,15 +46,14 @@ def build_hint_messages(user_query, skill_metadata, full_table_options=None):
     ]
 
 
-def build_resource_route_messages(user_query, full_skill, resource_index, skill_scripts, memory = None):
+def build_resource_route_messages(user_query, full_skill, resource_index, skill_scripts):
     # Resource Router 選擇 references 與 scripts，實際操作由 Python 執行
     system_prompt = dedent("""
-        你是 Resource Router node，請根據對話紀錄、完整 skill、resource index、scripts metadata 與 user query，選出回答所需的 references 與 scripts。
-        對話紀錄存在時，必須延續其中尚未完成的問題，將 memory 與本次 user query 合併理解，不可只依最後一句改變原始查詢目的。
+        你是 Resource Router node，請根據完整 skill、resource index、scripts metadata 與 user query，選出回答所需的 references 與 scripts。
         reference_paths 必須逐字使用 resource index 中存在的檔案名稱，不可輸出範例名稱或自行發明。
         script_id 必須逐字使用 scripts metadata 中存在的值，不可輸出範例名稱或自行發明。
         reference 路徑需相對於 skill 根目錄；index 只有檔名時，路徑前加 references/。
-        從對話紀錄與 user query 整理 script arguments；缺少的參數填 null，不可自行猜測。
+        從 user query 整理 script arguments；缺少的參數填 null，不可自行猜測。
         不要在呼叫 script 前自行判斷條件是否足以取得單一結果；script 會根據實際表格回傳 missing_fields 或 results。
         不需要 script 時，script_calls 必須是空 list。
         只輸出一個 JSON object，不要輸出 Markdown 或其他文字。
@@ -97,7 +69,6 @@ def build_resource_route_messages(user_query, full_skill, resource_index, skill_
         """).strip()
 
     route_input = {
-        "memory": memory or [],
         "user_query": user_query,
         "full_skill": full_skill,
         "resource_index": resource_index,
@@ -110,10 +81,10 @@ def build_resource_route_messages(user_query, full_skill, resource_index, skill_
     ]
 
 
-def build_context_builder_messages(user_query, skill_id, full_skill, reference_contexts, script_results, memory=None):
+def build_context_builder_messages(user_query, skill_id, full_skill, reference_contexts, script_results):
     # Context Builder 讀取選中的 skill 全文，檢查資訊並萃取 Responder 所需內容。
     system_prompt = dedent("""
-        你是 Context Builder node，請只依照提供的 reference_contexts、script_results、完整 skill、user query 與對話紀錄進行判斷。
+        你是 Context Builder node，請只依照提供的 reference_contexts、script_results、完整 skill 與 user query 進行判斷。
         reference_contexts 與 script_results 是回答規則和數值的優先依據，不可使用外部常識取代或修改。
         如果 script_results 中 status=false 且 missing_fields 不為空，information_complete 必須是 false，missing_information 必須根據 missing_fields 與 candidate_options 組織。
         如果 script_results 中 status=false 且 result_count 大於 1，information_complete 必須是 false，並要求 user 補充能取得單一結果的欄位。
@@ -145,7 +116,6 @@ def build_context_builder_messages(user_query, skill_id, full_skill, reference_c
 
     trigger_input = {
         "skill_id": skill_id,
-        "memory": memory or [],
         "user_query": user_query,
         "full_skill": full_skill,
         "reference_contexts": reference_contexts,

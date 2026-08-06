@@ -14,11 +14,6 @@ def has_registered_rag(system_state):
     return bool(system_state.rag.rag_metadata)
 
 
-def clear_skill_context(system_state): # system_hint 判斷此輪走向後決定是否執行此 function
-    system_state.skill.memory.clear()
-    system_state.skill.previous_skill_id = None
-
-
 def run_system_hint(user_query, system_state, client, tracer, config, token_tracker):
     # 判斷要走 RAG, skill 或直接走 LLM
     if not has_registered_skills(system_state) and not has_registered_rag(system_state):
@@ -51,10 +46,8 @@ def run_system_hint(user_query, system_state, client, tracer, config, token_trac
 
 def run_skill_turn(user_query, system_state, client, tracer, config, parameters, provider_name, model, token_tracker):
     # system_state 以封裝形式傳入再轉換成 run_skill_agent_turn() 的呼叫參數
-    response, previous_skill_id = run_skill_agent_turn(
+    response = run_skill_agent_turn(
         user_query=user_query,
-        memory=system_state.skill.memory,
-        previous_skill_id=system_state.skill.previous_skill_id,
         client=client,
         tracer=tracer,
         config=config,
@@ -69,8 +62,6 @@ def run_skill_turn(user_query, system_state, client, tracer, config, parameters,
         manage_trace=False,
     )
 
-    system_state.skill.previous_skill_id = previous_skill_id
-        # 更新可變物件 system_state
     return response
 
 
@@ -98,14 +89,10 @@ def run_system_turn(user_query, system_state, client, tracer, config, parameters
              # 走 skill system
 
         elif hint_result.route == "rag":
-            clear_skill_context(system_state) # 清除前一輪的 skill 使用紀錄
-                # 暫時保留清除功能, 測試目前暫時僅接受 RAG, Skill 二選一
-                # 下一版本會改成可二選一或同時使用後匯集單一 reponse
             response = run_rag_turn(user_query, system_state, client, tracer, config, parameters, token_tracker)
                 # 走 RAG system
 
         elif hint_result.route == "llm_chat":
-            clear_skill_context(system_state)
             response = run_llm_chat_turn(user_query, client, tracer, config, parameters, token_tracker, system_state.conversation_memory)
                 # 非 RAG system, Skill system 直接走一般 LLM Chat
 

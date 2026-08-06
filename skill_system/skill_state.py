@@ -5,8 +5,6 @@ from skill_system.load_skills import format_skill_metadata_for_prompt, load_skil
 
 @dataclass
 class SkillState:
-    memory: list = field(default_factory=list)
-    previous_skill_id: str | None = None
     skills: list[dict] = field(default_factory=list)
     skill_ids: list[str] = field(default_factory=list)
     skill_metadata: str = ""
