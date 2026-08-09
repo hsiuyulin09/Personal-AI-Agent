@@ -11,6 +11,7 @@ from skill_system.full_table_responses import full_table_hint_response
 
 
 def run_skill_agent_turn(user_query,
+    context_window,
     client,
     tracer,
     config,
@@ -33,11 +34,11 @@ def run_skill_agent_turn(user_query,
 
         if selected_skill is None:
             # hint: 判斷服務範圍，並從所有 skills 中選出單一 skill
-            hint_messages = build_hint_messages(user_query, skill_metadata, full_table_options)
+            hint_messages = build_hint_messages(user_query, skill_metadata, full_table_options, context_window)
             hint_result = call_llm(client, tracer, hint_messages, agent_parameters, config, node_name="hint", token_tracker=token_tracker, response_format={"type": "json_object"}, result_model=HintResult)
 
             if not hint_result.scope:
-                response = run_llm_chat_turn(user_query, client, tracer, config, parameters, token_tracker)
+                response = run_llm_chat_turn(user_query, client, tracer, config, parameters, token_tracker, context_window)
 
             elif hint_result.full_table_request:
                 response = full_table_hint_response(hint_result)
@@ -54,7 +55,7 @@ def run_skill_agent_turn(user_query,
             resource_index = load_skill_reference(selected_skill, selected_skill["references"][index_key]["path"])
 
             # resource_router: 判斷需要讀取哪些 reference，以及是否需要執行 script
-            resource_messages = build_resource_route_messages(user_query, full_skill, resource_index, selected_skill["scripts"])
+            resource_messages = build_resource_route_messages(user_query, full_skill, resource_index, selected_skill["scripts"], context_window)
             resource_result = call_llm(client, tracer, resource_messages, agent_parameters, config, node_name="resource_router", token_tracker=token_tracker, response_format={"type": "json_object"}, result_model=ResourceRouteResult)
             reference_contexts = [
                 {"path": path, "content": load_skill_reference(selected_skill, path)}
@@ -66,7 +67,7 @@ def run_skill_agent_turn(user_query,
             ]
 
             # Context Builder: 根據 User Query、SKILL.md、政策內容與 script 結果萃取回答所需的 selected_context
-            context_messages = build_context_builder_messages(user_query, selected_skill["skill_id"], full_skill, reference_contexts, script_results)
+            context_messages = build_context_builder_messages(user_query, selected_skill["skill_id"], full_skill, reference_contexts, script_results, context_window)
             builder_result = call_llm(client, tracer, context_messages, agent_parameters, config, node_name="context_builder", token_tracker=token_tracker, response_format={"type": "json_object"}, result_model=ContextBuilderResult)
 
             # responder: 收到 selected_context 組織最終回覆

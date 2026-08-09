@@ -1,18 +1,18 @@
 import json
 
 
-def build_llm_messages(user_query, conversation_memory=None):
+def build_llm_messages(user_query, context_window=None):
     system_prompt = "你是一名專業助理，請使用繁體中文回答使用者的問題並進行一般對話。"
 
     messages = [
         {"role": "system", "content": system_prompt},
-        *(conversation_memory or []), # *() 序列解包, 拆開最外層的 list
+        *(context_window or []), # *() 序列解包, 拆開最外層的 list
         {"role": "user", "content": user_query},
     ]
     return messages
 
 
-def build_system_hint_messages(user_query, skill_metadata="", rag_metadata=None):
+def build_system_hint_messages(user_query, skill_metadata="", rag_metadata=None, context_window=None):
     system_prompt = """
 你是系統層路由器，只負責判斷使用者問題應該交給哪一種流程處理，不要回答問題本身。
 
@@ -42,6 +42,7 @@ def build_system_hint_messages(user_query, skill_metadata="", rag_metadata=None)
 
     hint_messages = [
         {"role": "system", "content": system_prompt},
+        *(context_window or []),
         {"role": "user", "content": json.dumps(prompt_data, ensure_ascii=False)}
     ]
     return hint_messages

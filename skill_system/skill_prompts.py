@@ -6,7 +6,7 @@ def format_prompt_data(data):
     return json.dumps(data, ensure_ascii=False, indent=2)
 
 
-def build_hint_messages(user_query, skill_metadata, full_table_options=None):
+def build_hint_messages(user_query, skill_metadata, full_table_options=None, context_window=None):
     # Hint 只讀 metadata，判斷服務範圍並選出 skill_id
     system_prompt = dedent("""
         你是 Hint node，請根據提供的 skill metadata，判斷 user query 是否在至少一個 skill 的服務範圍內。
@@ -42,11 +42,12 @@ def build_hint_messages(user_query, skill_metadata, full_table_options=None):
 
     return [
         {"role": "system", "content": system_prompt},
+        *(context_window or []),
         {"role": "user", "content": format_prompt_data(hint_input)}
     ]
 
 
-def build_resource_route_messages(user_query, full_skill, resource_index, skill_scripts):
+def build_resource_route_messages(user_query, full_skill, resource_index, skill_scripts, context_window=None):
     # Resource Router 選擇 references 與 scripts，實際操作由 Python 執行
     system_prompt = dedent("""
         你是 Resource Router node，請根據完整 skill、resource index、scripts metadata 與 user query，選出回答所需的 references 與 scripts。
@@ -77,11 +78,12 @@ def build_resource_route_messages(user_query, full_skill, resource_index, skill_
 
     return [
         {"role": "system", "content": system_prompt},
+        *(context_window or []),
         {"role": "user", "content": format_prompt_data(route_input)},
     ]
 
 
-def build_context_builder_messages(user_query, skill_id, full_skill, reference_contexts, script_results):
+def build_context_builder_messages(user_query, skill_id, full_skill, reference_contexts, script_results, context_window=None):
     # Context Builder 讀取選中的 skill 全文，檢查資訊並萃取 Responder 所需內容。
     system_prompt = dedent("""
         你是 Context Builder node，請只依照提供的 reference_contexts、script_results、完整 skill 與 user query 進行判斷。
@@ -124,6 +126,7 @@ def build_context_builder_messages(user_query, skill_id, full_skill, reference_c
 
     return [
         {"role": "system", "content": system_prompt},
+        *(context_window or []),
         {"role": "user", "content": format_prompt_data(trigger_input)},
     ]
 

@@ -5,3 +5,4 @@ opentelemetry-api==1.41.0
 opentelemetry-sdk==1.41.0
 ipykernel==7.1.0
 pydantic==2.13.4
+langgraph==1.2.9
