@@ -1,0 +1,5 @@
+context_window_manager:
+  max_turns: 5
+  max_context_tokens: 8000
+  checkpointer: memory
+    # memory = InMemorySaver()

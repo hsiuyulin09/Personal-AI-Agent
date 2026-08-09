@@ -1,12 +1,28 @@
 from math import ceil
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
+from system_config import load_system_config
 from system_state import ContextWindowState
 
 
 DEFAULT_THREAD_ID = "default"
 # thread id = session_id 預留 session 空間
 # 未實作 session 沒有 id 全部都用 "default"
+
+CHECKPOINTER = {
+    "memory": InMemorySaver
+}
+
+
+def create_checkpointer(checkpointer_name):
+    try:
+        checkpointer = CHECKPOINTER[checkpointer_name]
+    except KeyError as error: # 輸入的 checkpointer_name 不在白名單內即跳出錯誤
+        raise ValueError(f"Unknown checkpointer: {checkpointer_name}") from error
+
+    checkpointer = checkpointer()
+
+    return checkpointer
 
 def cjk_character(character): # 判斷是否為漢字範圍, 用於粗略估算 token 數
     judgment = (
@@ -109,7 +125,7 @@ def trim_oversized_turn(turn, token_limit):
 
 
 class ContextWindowManager:
-    def __init__(self, max_turns=5, max_context_tokens=8000, checkpointer=None): # checkpointer 負責保存 LangGraph 的完整 State checkpoint
+    def __init__(self, max_turns, max_context_tokens, checkpointer): # checkpointer 負責保存 LangGraph 的完整 State checkpoint
         if max_turns <= 0:
             raise ValueError("max_turns must be greater than 0")
         if max_context_tokens <= 0:
@@ -117,7 +133,7 @@ class ContextWindowManager:
 
         self.max_turns = max_turns
         self.max_context_tokens = max_context_tokens
-        self.checkpointer = checkpointer or InMemorySaver()
+        self.checkpointer = checkpointer
 
         workflow = StateGraph(ContextWindowState) 
             # StateGraph() 建立一個 LangGraph workflow 指定這個流程使用 ContextWindowState 作為共用 State Schema
@@ -194,4 +210,17 @@ class ContextWindowManager:
         )
 
 
-default_context_window_manager = ContextWindowManager()
+def create_context_window_manager(system_config):
+    # 讓 ContextWindowManager Graph 載入 config parameter
+    context_config = system_config["context_window_manager"]
+    checkpointer = create_checkpointer(context_config["checkpointer"])
+
+    context_window_manager = ContextWindowManager(
+        max_turns=context_config["max_turns"],
+        max_context_tokens=context_config["max_context_tokens"],
+        checkpointer=checkpointer,
+    )
+    return context_window_manager
+
+
+default_context_window_manager = create_context_window_manager(load_system_config())
