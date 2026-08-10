@@ -1,31 +1,15 @@
 from contextlib import nullcontext
-
 from llm_client import call_llm
 from trace_utils import trace_system # opentelemetry trace tools
-from skill_system.skill_prompts import build_hint_messages, build_resource_route_messages, build_context_builder_messages, build_responder_messages
+from skill_system.skill_prompts import build_hint_messages, build_resource_route_messages, build_context_builder_messages
 from skill_system.load_skills import get_skill_by_id, load_full_skill, load_skill_reference
-from llm_chat import run_llm_chat_turn
 from skill_system.skill_tools import run_skill_script
 from skill_system.skill_schemas import HintResult, ResourceRouteResult, ContextBuilderResult
 from skill_system.full_table_responses import full_table_hint_response
 
 
-def run_skill_agent_turn(user_query,
-    context_window,
-    client,
-    tracer,
-    config,
-    parameters,
-    agent_parameters,
-    provider_name,
-    model,
-    skills,
-    skill_metadata,
-    full_table_options,
-    token_tracker,
-    manage_trace=True,
-):
-    response = None
+def run_skill_agent_turn(user_query, context_window, client, tracer, config, agent_parameters, provider_name, model, skills, skill_metadata, full_table_options, token_tracker, manage_trace=True):
+    context_result  = None
     selected_skill = None
 
     trace_context = trace_system(tracer, token_tracker, provider_name, model) if manage_trace else nullcontext()
@@ -38,10 +22,13 @@ def run_skill_agent_turn(user_query,
             hint_result = call_llm(client, tracer, hint_messages, agent_parameters, config, node_name="hint", token_tracker=token_tracker, response_format={"type": "json_object"}, result_model=HintResult)
 
             if not hint_result.scope:
-                response = run_llm_chat_turn(user_query, client, tracer, config, parameters, token_tracker, context_window)
+                raise ValueError("Skill Hinter found no matching skill.")
 
             elif hint_result.full_table_request:
-                response = full_table_hint_response(hint_result)
+                skill_id=hint_result.skill_id
+                selected_context=full_table_hint_response(hint_result)
+
+                context_result = ContextBuilderResult(skill_id=skill_id, information_complete=True, missing_information=[], selected_context=selected_context, reason="使用已設定的完整表格替代回答。")
 
             else:
                 selected_skill = get_skill_by_id(hint_result.skill_id, skills)
@@ -68,10 +55,9 @@ def run_skill_agent_turn(user_query,
 
             # Context Builder: 根據 User Query、SKILL.md、政策內容與 script 結果萃取回答所需的 selected_context
             context_messages = build_context_builder_messages(user_query, selected_skill["skill_id"], full_skill, reference_contexts, script_results, context_window)
-            builder_result = call_llm(client, tracer, context_messages, agent_parameters, config, node_name="context_builder", token_tracker=token_tracker, response_format={"type": "json_object"}, result_model=ContextBuilderResult)
+            context_result = call_llm(client, tracer, context_messages, agent_parameters, config, node_name="context_builder", token_tracker=token_tracker, response_format={"type": "json_object"}, result_model=ContextBuilderResult)
 
-            # responder: 收到 selected_context 組織最終回覆
-            responder_messages = build_responder_messages(user_query, builder_result)
-            response = call_llm(client, tracer, responder_messages, parameters, config, node_name="responder", token_tracker=token_tracker)
+    if context_result is None:
+        raise RuntimeError("Skill System did not produce Context Builder result.")
 
-    return response
+    return context_result

@@ -1,8 +1,8 @@
 from context_window_manager import DEFAULT_THREAD_ID, default_context_window_manager
 from llm_chat import run_llm_chat_turn
 from llm_client import call_llm
-from system_schemas import SystemRouteResult
-from system_set_prompts import build_system_hint_messages
+from system_schemas import SystemHintResult
+from system_set_prompts import build_system_hint_messages, build_responder_messages
 from trace_utils import trace_system
 from skill_system.skill_orchestrator import run_skill_agent_turn
 
@@ -19,15 +19,15 @@ def run_system_hint(user_query, context_window, system_state, client, tracer, co
     # 判斷要走 RAG, skill 或直接走 LLM
     if not has_registered_skills(system_state) and not has_registered_rag(system_state):
         # 若 RAG, Skill 清單為空直接走普通 llm_chat
-        system_route_result = SystemRouteResult(route="llm_chat", reason="No skill or RAG metadata registered.")
+        system_route_result = SystemHintResult(route="llm_chat", reason="No skill or RAG metadata registered.")
         return system_route_result
 
     hint_messages = build_system_hint_messages(user_query=user_query, skill_metadata=system_state.skill.skill_metadata, rag_metadata=system_state.rag.rag_metadata, context_window=context_window)
-    hint_result = call_llm(client, tracer, hint_messages, system_state.agent_parameters, config, node_name="system_hint", token_tracker=token_tracker, response_format={"type": "json_object"}, result_model=SystemRouteResult)
+    hint_result = call_llm(client, tracer, hint_messages, system_state.agent_parameters, config, node_name="system_hint", token_tracker=token_tracker, response_format={"type": "json_object"}, result_model=SystemHintResult)
 
     if hint_result.route == "skill" and not has_registered_skills(system_state):
         # hint 判定走 skill 但 skill 清單內為空
-        hint_result = SystemRouteResult(
+        hint_result = SystemHintResult(
             route="llm_chat",
             reason="System hint selected skill, but no skills are registered.",
         )
@@ -35,13 +35,20 @@ def run_system_hint(user_query, context_window, system_state, client, tracer, co
 
     if hint_result.route == "rag" and not has_registered_rag(system_state):
         # hint 判定走 rag 但 rag 清單內為空
-        hint_result = SystemRouteResult(
+        hint_result = SystemHintResult(
             route="llm_chat",
             reason="System hint selected RAG, but no RAG metadata is registered."
         )
         return hint_result
 
     return hint_result
+
+
+def run_responder(user_query, context_result, client, tracer, config, parameters, token_tracker):
+    # Responder 取得 Context Builder 結果並組織 Skill 和 RAG 的最終回答
+    responder_messages = build_responder_messages(user_query, context_result)
+    response = call_llm(client, tracer, responder_messages, parameters, config, node_name = "responder", token_tracker = token_tracker)
+    return response
 
 
 def run_skill_turn(user_query, context_window, system_state, client, tracer, config, parameters, provider_name, model, token_tracker):
