@@ -40,11 +40,12 @@ def build_hint_messages(user_query, skill_metadata, full_table_options=None, con
         "user_query": user_query
     }
 
-    return [
+    hint_messages = [
         {"role": "system", "content": system_prompt},
         *(context_window or []),
         {"role": "user", "content": format_prompt_data(hint_input)}
     ]
+    return hint_messages
 
 
 def build_resource_route_messages(user_query, full_skill, resource_index, skill_scripts, context_window=None):
@@ -76,11 +77,12 @@ def build_resource_route_messages(user_query, full_skill, resource_index, skill_
         "skill_scripts": skill_scripts,
     }
 
-    return [
+    route_messages = [
         {"role": "system", "content": system_prompt},
         *(context_window or []),
-        {"role": "user", "content": format_prompt_data(route_input)},
+        {"role": "user", "content": format_prompt_data(route_input)}
     ]
+    return route_messages
 
 
 def build_context_builder_messages(user_query, skill_id, full_skill, reference_contexts, script_results, context_window=None):
@@ -124,37 +126,9 @@ def build_context_builder_messages(user_query, skill_id, full_skill, reference_c
         "script_results": script_results,
     }
 
-    return [
+    context_builder_messages = [
         {"role": "system", "content": system_prompt},
         *(context_window or []),
-        {"role": "user", "content": format_prompt_data(trigger_input)},
+        {"role": "user", "content": format_prompt_data(trigger_input)}
     ]
-
-
-def build_responder_messages(user_query, context_result):
-    # Responder 不讀完整 skill，只根據 Context Builder 的結果組織追問或最終回答。
-    system_prompt = dedent("""
-        你是 Responder node，請使用繁體中文，根據 Context Builder 的結果回覆 user。
-
-        information_complete 為 false 時：
-            - 根據 missing_information 禮貌且清楚地要求 user 補充資料。
-            - 不可自行回答尚未具備足夠資訊的問題。
-
-        information_complete 為 true 時：
-            - 只根據 selected_context 組織最終答案。
-            - 不可增加 selected_context 沒有提供的規則。
-            - 不可自行加入 selected_context 沒有的括號補充或分類標籤。
-            - selected_context 有明確答案時直接回答，不可改用外部常識或要求 user 另行確認。
-
-        直接輸出給 user 閱讀的自然語言，不要輸出 JSON、Markdown code block 或內部判斷過程。
-        """).strip()
-
-    responder_input = {
-        "user_query": user_query,
-        "context_builder_result": context_result.model_dump(),
-    }
-
-    return [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": format_prompt_data(responder_input)},
-    ]
+    return context_builder_messages
