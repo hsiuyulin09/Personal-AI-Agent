@@ -1,8 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-# Hint LLM 判斷不在服務範圍時，由 Python 直接回傳，避免呼叫 Responder LLM。
-OUT_OF_SCOPE_MESSAGE = "此問題非本系統服務範圍，請重新提問"
-
 
 class StrictModel(BaseModel):
     # 嚴格驗證型別，並禁止 LLM 回傳 schema 以外的欄位。

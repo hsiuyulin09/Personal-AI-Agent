@@ -51,15 +51,14 @@ def run_responder(user_query, context_result, client, tracer, config, parameters
     return response
 
 
-def run_skill_turn(user_query, context_window, system_state, client, tracer, config, parameters, provider_name, model, token_tracker):
+def run_skill_turn(user_query, context_window, system_state, client, tracer, config, provider_name, model, token_tracker):
     # system_state 以封裝形式傳入再轉換成 run_skill_agent_turn() 的呼叫參數
-    response = run_skill_agent_turn(
+    context_result  = run_skill_agent_turn(
         user_query=user_query,
         context_window=context_window,
         client=client,
         tracer=tracer,
         config=config,
-        parameters=parameters,
         agent_parameters=system_state.agent_parameters,
         provider_name=provider_name,
         model=model,
@@ -67,10 +66,10 @@ def run_skill_turn(user_query, context_window, system_state, client, tracer, con
         skill_metadata=system_state.skill.skill_metadata,
         full_table_options=system_state.skill.full_table_options,
         token_tracker=token_tracker,
-        manage_trace=False,
+        manage_trace=False
     )
 
-    return response
+    return context_result 
 
 
 def run_rag_turn(user_query, context_window, system_state, client, tracer, config, parameters, token_tracker):
@@ -95,13 +94,12 @@ def run_system_turn(user_query, system_state, client, tracer, config, parameters
         hint_result = run_system_hint(user_query, context_window, system_state, client, tracer, config, token_tracker)
             # system hinter 判斷應往 RAG system or Skill system
 
-        if hint_result.route == "skill":
-            response = run_skill_turn(user_query, context_window, system_state, client, tracer, config, parameters, provider_name, model, token_tracker)
-             # 走 skill system
+        if hint_result.route == "skill": # 走 skill system
+            context_result = run_skill_turn(user_query, context_window, system_state, client, tracer, config, provider_name, model, token_tracker)
+            response = run_responder(user_query=user_query, context_result=context_result, client=client, tracer=tracer, config=config, parameters=parameters, token_tracker=token_tracker)
 
-        elif hint_result.route == "rag":
+        elif hint_result.route == "rag": # 走 RAG system
             response = run_rag_turn(user_query, context_window, system_state, client, tracer, config, parameters, token_tracker)
-                # 走 RAG system
 
         elif hint_result.route == "llm_chat":
             response = run_llm_chat_turn(user_query, client, tracer, config, parameters, token_tracker, context_window)
