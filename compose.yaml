@@ -1,0 +1,31 @@
+# Docker 環境的安裝模式
+services:
+  postgres: # service name
+    image: postgres:18
+
+    environment: 
+      POSTGRES_DB: ${POSTGRES_DB:-personal_ai_agent} # 預設 DB name
+      POSTGRES_USER: ${POSTGRES_USER:-personal_ai_agent} # 預設 user account name
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env} # .env 內的 password
+        # ? 無值時報錯 # 報錯內容 POSTGRES_PASSWORD must be set in .env
+
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+        # Windows localhost:5432 # PostgreSQL container:5432
+
+    volumes: # 持久化儲存空間
+      - postgres_data:/var/lib/postgresql
+        # postgres_data 儲存空間名稱
+        # /var/lib/postgresql container 內的掛載路徑
+
+    healthcheck:
+      test: # healthy/unhealthy
+        - "CMD-SHELL" # use container shell
+        - "pg_isready -U ${POSTGRES_USER:-personal_ai_agent} -d ${POSTGRES_DB:-personal_ai_agent}"       
+      interval: 10s # 每次檢查間隔
+      timeout: 5s
+      retries: 5 # 練續失敗次數門檻
+      start_period: 10s # 啟動等待時間
+
+volumes:
+  postgres_data: {} # 宣告並讓 Docker 管理 postgres_data 儲存空間
