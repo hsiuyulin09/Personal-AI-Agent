@@ -15,8 +15,10 @@ services:
 
     volumes: # 持久化儲存空間
       - postgres_data:/var/lib/postgresql
-        # postgres_data 儲存空間名稱
-        # /var/lib/postgresql container 內的掛載路徑
+        # 儲存空間名稱: container 內的掛載路徑
+      - ./database/docker_init:/docker-entrypoint-initdb.d:ro
+        # 初始化腳本掛載到 container
+        # SQL 初始化檔目錄: container 內的掛載路徑: 權限
 
     healthcheck:
       test: # healthy/unhealthy
@@ -24,7 +26,7 @@ services:
         - "pg_isready -U ${POSTGRES_USER:-personal_ai_agent} -d ${POSTGRES_DB:-personal_ai_agent}"       
       interval: 10s # 每次檢查間隔
       timeout: 5s
-      retries: 5 # 練續失敗次數門檻
+      retries: 5 # 連續失敗次數門檻
       start_period: 10s # 啟動等待時間
 
 volumes:
