@@ -1,10 +1,40 @@
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from os import getenv
+from pathlib import Path
+
+from dotenv import load_dotenv
+from sqlalchemy import engine_from_config, pool
+from sqlalchemy.engine import make_url
 from alembic import context
 
 # Alembic Config 物件讀取目前使用中的 .ini 設定值
 config = context.config
+
+# 載入環境變數
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(PROJECT_ROOT/".env")
+
+# 讀取 PostgreSQL 正式 Database 的連線 str (DSN)
+postgres_dsn = getenv("POSTGRES_DSN") # postgres_dsn -> str
+if not postgres_dsn:
+    raise ValueError("POSTGRES_DSN must be set in .env")
+
+# DSN 字串解析成 SQLAlchemy URL 物件
+postgres_url = make_url(postgres_dsn)
+if postgres_url.get_backend_name() != "postgresql":
+    raise ValueError("POSTGRES_DSN must use postgresql")
+
+# 指定 SQLAlchemy 使用 Psycopg 3 連接 PostgreSQL
+sqlalchemy_url = postgres_url.set(drivername="postgresql+psycopg")
+
+# 將 SQLAlchemy URL 物件轉成包含完整連線資料的字串
+sqlalchemy_url_text = sqlalchemy_url.render_as_string(hide_password = False)
+
+# 避免 URL 中的 "%" 被 Alembic Config 當成特殊格式
+sqlalchemy_url_text = sqlalchemy_url_text.replace("%", "%%")
+
+# 在本次執行期間覆蓋 alembic.ini 的原預設連線字串
+config.set_main_option("sqlalchemy.url", sqlalchemy_url_text)
 
 # 讀取設定檔中的 Python logging 設定，並完成 logger 初始化。
 if config.config_file_name is not None:
