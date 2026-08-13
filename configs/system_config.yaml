@@ -1,5 +1,11 @@
+# system config
 context_window_manager:
   max_turns: 5
   max_context_tokens: 8000
   checkpointer: memory
     # memory = InMemorySaver()
+
+# PostgreSQL 資料庫連線池設定
+conversation_history_database:
+  pool_min_size: 1
+  pool_max_size: 4
