@@ -65,7 +65,71 @@ def upgrade() -> None:
         schema="conversation_history"
     )
 
+    # 建立 index
+    # 依 Conversation 和 created_at 查詢最新 Messages
+    op.create_index(
+        "ix_messages_conversation_created_at", # index name
+        "messages", # 指定建立 index 的 table
+        ["conversation_id", sa.text("created_at DESC")], 
+            # [a, b] 篩選查層數, 有順序影響
+            # sa.text() 表 SQL 語法 # DESC 是 SQL 語法, 降冪排列, 由大到小, 由新到舊
+        unique=False,
+        schema="conversation_history"
+    )
+
+    # Conversation 和 Turn 查詢 Messages
+    op.create_index(
+        "ix_messages_conversation_turn",
+        "messages",
+        ["conversation_id", "turn_id"],
+        unique=False,
+        schema="conversation_history"
+    )
+
+    # 查詢最近使用的 Conversations
+    op.create_index(
+        "ix_conversations_updated_at",
+        "conversations",
+        [sa.text("updated_at DESC")],
+        unique=False,
+        schema="conversation_history"
+    )
+
 
 def downgrade() -> None:
-    """Downgrade schema."""
-    pass
+    # downgrade 順序會與 upgrade 相反
+    # 刪除 index
+    op.drop_index(
+        "ix_conversations_updated_at",
+        table_name="conversations",
+        schema="conversation_history"
+    )
+
+    op.drop_index(
+        "ix_messages_conversation_turn",
+        table_name="messages",
+        schema="conversation_history"
+    )
+
+    op.drop_index(
+        "ix_messages_conversation_created_at",
+        table_name="messages",
+        schema="conversation_history"
+    )
+
+    # 先刪除具有 Foreign Key 的 messages Table
+    op.drop_table(
+        "messages",
+        schema="conversation_history"
+    )
+
+    # 再刪除被 Foreign Key 參照的 conversations Table
+    op.drop_table(
+        "conversations",
+        schema="conversation_history"
+    )
+
+    # 最後刪除 Conversation History Schema
+    op.execute(
+        sa.schema.DropSchema("conversation_history")
+    )
