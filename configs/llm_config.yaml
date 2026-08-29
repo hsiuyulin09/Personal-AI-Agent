@@ -1,4 +1,4 @@
-provider: openai
+provider: local_qwen
 
 providers:
   groq:
@@ -10,6 +10,12 @@ providers:
     base_url: https://api.openai.com/v1
     api_key_env: OPENAI_API_KEY
     model: gpt-4o
+
+  local_qwen: # 為開發者自用地端模型, user 可自行替換或新增 provider llm
+    base_url: "http://127.0.0.1:8080/v1/"
+    api_key: local
+    model: "qwen3-vl-8b" # qwen3-vl-8b-instruct-abliterated-v2.0-q4_k_m
+    timeout: 600
 
 generation:
   temperature: 0.8
