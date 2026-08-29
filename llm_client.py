@@ -40,6 +40,7 @@ def create_client(provider_config, api_key):
         api_key=api_key,
         # cillm_portal 需要額外 headers 才能記錄 user/platform/agent, 其他 provider 沒設定就不會帶。
         default_headers=provider_config.get("headers", {}),
+        timeout=provider_config.get("timeout")
     )
     return client
 
