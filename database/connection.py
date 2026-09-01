@@ -12,7 +12,7 @@ ENV_PATH = PROJECT_ROOT/".env"
 
 
 # 建立共用的 PostgreSQL Connection Pool
-def creat_connection_pool(dsn=None, min_size=None, max_size=None): # min_size 最少保留連線數, max_size 允許的最大連線數
+def create_connection_pool(dsn=None, min_size=None, max_size=None): # min_size 最少保留連線數, max_size 允許的最大連線數
     load_dotenv(ENV_PATH)
     postgre_dsn = dsn or getenv("POSTGRES_DSN")
 
@@ -20,18 +20,18 @@ def creat_connection_pool(dsn=None, min_size=None, max_size=None): # min_size �
         raise ValueError("POSTGRES_DSN must be set in .env")
 
     system_config = load_system_config()
-    database_config = system_config.get("postgresql", {})
+    postgresql_config = system_config.get("postgresql", {})
 
     resolved_min_size = (
         min_size
         if min_size is not None
-        else database_config.get("pool_min_size", 1)
+        else postgresql_config.get("pool_min_size", 1)
     )
 
     resolved_max_size = (
         max_size
         if max_size is not None
-        else database_config.get("pool_max_size", 4)
+        else postgresql_config.get("pool_max_size", 4)
     )
 
     if not isinstance(resolved_min_size, int) or resolved_min_size < 1:
@@ -59,5 +59,5 @@ def creat_connection_pool(dsn=None, min_size=None, max_size=None): # min_size �
 
 
 # 關閉 Connection Pool 並釋放其中的資料庫連線
-def close_connect_pool(pool):
+def close_connection_pool(pool):
     pool.close()
