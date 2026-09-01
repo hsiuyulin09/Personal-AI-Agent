@@ -6,6 +6,6 @@ context_window_manager:
     # memory = InMemorySaver()
 
 # PostgreSQL 資料庫連線池設定
-conversation_history_database:
+postgresql:
   pool_min_size: 1
   pool_max_size: 4

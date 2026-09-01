@@ -20,7 +20,7 @@ def creat_connection_pool(dsn=None, min_size=None, max_size=None): # min_size �
         raise ValueError("POSTGRES_DSN must be set in .env")
 
     system_config = load_system_config()
-    database_config = system_config.get("conversation_history_database", {}) # 是不是應該改參數分類命名?因為這是共用的
+    database_config = system_config.get("postgresql", {})
 
     resolved_min_size = (
         min_size
