@@ -29,7 +29,7 @@ class ConversationMessage:
     created_at: datetime
 
 
-# 儲存介面層
+# 儲存介面層 (僅定義非實作)
 # Protocol 只定義 Conversation History 儲存層的公開契約
 class ConversationHistoryStore(Protocol):
     def get_or_create_current_conversation(self) -> Conversation:
