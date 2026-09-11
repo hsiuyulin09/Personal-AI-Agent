@@ -45,7 +45,7 @@ class PostgresConversationHistoryStore:
         )
         return message_row
 
-    def get_create_current_conversation(self):
+    def get_or_create_current_conversation(self):
         with self.pool.connection() as connection:
             # .connection() 從 pool (connection pool) 取得一條 database 連線
             with connection.transaction():
@@ -56,7 +56,7 @@ class PostgresConversationHistoryStore:
                     cursor.execute(
                         """
                         SELECT session_id, title, created_at, updated_at
-                        FROM conversation_history.conversation
+                        FROM conversation_history.conversations
                         ORDER BY updated_at DESC
                         LIMIT 1
                         """
@@ -70,17 +70,66 @@ class PostgresConversationHistoryStore:
 
                     session_id = uuid4() # 產生隨機十六進位 32 碼 uuid
                     cursor.execute(
+                        # INSERT INTO 向資料表新增一筆 row
+                        # VALUES 對應 INSERT INTO 的欄位順序新增到資料表中
+                        # RETURNING 將指定 (目前新增的一筆) 欄位資料回傳
                         """
-                        INSERT INTO conversation_history.conversation (session_id, title, created_at, updated_at)
+                        INSERT INTO conversation_history.conversations (session_id, title, created_at, updated_at)
                         VALUES (%s, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                        RETURNING (session_id, title, created_at, updated_at)
+                        RETURNING session_id, title, created_at, updated_at
                         """,
-                        (session_id)
+                        (session_id,)
                     )
 
-                    create_row = cursor.fetchone()
+                    create_row = cursor.fetchone() # fetchone() 從 cursor 的站存查詢結果中取出 row
                     if create_row is None:
                         raise RuntimeError("conversation was created but no row was returned")
 
                     conversation_row = self.row_to_conversation(create_row)
                     return conversation_row
+
+    def save_message(self, session_id: UUID, turn_id: UUID, role: MessageRole, content: str, metadata: Mapping[str, Any] | None = None):
+        # 保存 user or assistent message 的內部共用 function
+        if role not in ("user", "assistant"):
+            raise ValueError(f"unavailable message role: {role!r}")
+
+        if not isinstance(content, str):
+            raise TypeError("message content type must be string")
+
+        if metadata is None:
+            resolve_metadata: dict[str, Any] = {}
+        else:
+            if not isinstance(metadata, Mapping):
+                raise TypeError("metadata type must be Mapping")
+            resolve_metadata = dict(metadata)
+
+        message_id = uuid4()
+
+        with self.pool.connection() as connection:
+            with connection.transction():
+                with connection.cursor(row_factory=dict_row) as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO conversation_history.messages (message_id, session_id, turn_id, role, content, metadata, created_at)
+                        VALUES (%S, %S, %S, %S, %S, %S, CURRENT_TIMESTAMP)
+                        RETURNING message_id, session_id, turn_id, role, content, metadata, created_at
+                        """,
+                        (message_id, session_id, turn_id, role, content, Jsonb(resolve_metadata))
+                    )
+
+                    message_row = cursor.fetchone()
+
+                    if message_row is None:
+                        raise RuntimeError("message was created but no row was returned")
+
+                    cursor.execute(
+                        """
+                        UPDATE conversation_history.conversations
+                        SET updated_at = CURRENT_TIMESTAMP
+                        WHERE session_id = %s
+                        """,
+                        (session_id,)
+                    )
+
+                    row = self.row_to_message(message_row)
+                    return row
