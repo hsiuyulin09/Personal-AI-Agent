@@ -161,6 +161,8 @@ class PostgresConversationHistoryStore:
                             # SELECT 選取或在查詢暫存的 table 中創造新的欄位 # 聚合函式() FILTER (WHERE 條件)
                             # WHERE turn_id <> %s 排除當輪剛進入的 user query # <> 不等於
                             # GROUP BY 邏輯分組, 非直接相鄰 (並影響理解順序的下一步 HAVING)
+                        # INNER JOIN 根據指定條件，把兩個 Table 的相關 rows 連接起來, 僅保留兩邊都能配對成功的資料
+                        # CASE message.role WHEN 'user' THEN 0 即為 if message.role == 'user' 就標記為 0
                         """
                         WITH recent_complete_turns AS (
                             SELECT 
@@ -190,6 +192,25 @@ class PostgresConversationHistoryStore:
                             message.metadata,
                             message.created_at
                         FROM conversation_history.messages AS message
+                        INNER JOIN recent_complete_turns
+                            ON recent_complete_turns.turn_id = message.turn_id
+                        WHERE session_id = %s
+                        ORDER BY
+                            recent_complete_turns.turn_started_at ASC,
+                            recent_complete_turns.turn_id ASC,
+                            CASE message.role
+                                WHEN 'user' THEN 0
+                                WHEN 'assistant' THEN 1
+                            END ASC,
+                            message.created_at ASC,
+                            message.message_id ASC
+
                         """,
-                        (session_id, current_turn_id, max_turns,)
+                        (session_id, current_turn_id, max_turns, session_id)
                     )
+                    rows = cursor.fetchall()
+
+                    for row in rows:
+                        complete_turns = self.row_to_message(row)
+
+        return complete_turns
