@@ -123,6 +123,9 @@ class PostgresConversationHistoryStore:
                         raise RuntimeError("message was created but no row was returned")
 
                     cursor.execute(
+                        # UPDATE 指定要修改的 table
+                        # SET 指定欄位要更新的欄位與值
+                        # WHERE 指定 (這裡用 session_id 指定) 要修改的那筆 row
                         """
                         UPDATE conversation_history.conversations
                         SET updated_at = CURRENT_TIMESTAMP
@@ -131,5 +134,62 @@ class PostgresConversationHistoryStore:
                         (session_id,)
                     )
 
-                    row = self.row_to_message(message_row)
-                    return row
+                    save_message_row = self.row_to_message(message_row)
+                    return save_message_row
+
+    def save_user_message(self, session_id: UUID, turn_id: UUID, original_query: str, metadata: Mapping[str, Any] | None = None):
+        save_user_message_row = self.save_message(session_id=session_id, turn_id=turn_id, role="user", content=original_query, metadata=metadata)
+        return save_user_message_row
+
+    def save_assistent_message(self, session_id: UUID, turn_id: UUID, assistant_response: str, metadata: Mapping[str, Any] | None = None):
+        save_assistant_message_row = self.save_message(session_id=session_id, turn_id=turn_id, role="assistant", content=assistant_response, metadata=metadata)
+        return save_assistant_message_row
+
+    # 讀取近期歷史對話 (調取給 context window manager)
+    def load_recent_turns(self, session_id: UUID, current_turn_id: UUID, max_turns: int):
+        if not isinstance(max_turns, int) or isinstance(max_turns, bool) or max_turns < 0:
+            raise ValueError("max_turns must be not negative int")
+
+        if max_turns==0:
+            return []
+
+        with self.pool.connection() as connection:
+            with connection.tansaction():
+                with connection.cursor(row_factory=dict_row) as cursor:
+                    cursor.execute(
+                        # WITH AS 建立一個只在本次 SQL 查詢中使用的暫時查詢結果 # WITH (命名) AS (答詢內容)
+                            # SELECT 選取或在查詢暫存的 table 中創造新的欄位 # 聚合函式() FILTER (WHERE 條件)
+                            # WHERE turn_id <> %s 排除當輪剛進入的 user query # <> 不等於
+                            # GROUP BY 邏輯分組, 非直接相鄰 (並影響理解順序的下一步 HAVING)
+                        """
+                        WITH recent_complete_turns AS (
+                            SELECT 
+                                turn_id,
+                                (MIN(created_at) FILTER (WHERE role = 'user')) AS turn_started_at
+                            FROM conversation_history.messages
+                            WHERE
+                                session_id = %s
+                                AND
+                                turn_id <> %s
+                            GROUP BY turn_id
+                            HAVING 
+                                (COUNT(*) FILTER (WHERE role='user') = 1)
+                                AND
+                                (COUNT(*) FILTER (WHERE role='assistant') = 1)
+                            ORDER BY 
+                                turn_started_at DESC,
+                                turn_id DESC
+                            LIMIT %s
+                        )
+                        SELECT
+                            message.message_id,
+                            message.session_id,
+                            message.turn_id,
+                            message.role,
+                            message.content,
+                            message.metadata,
+                            message.created_at
+                        FROM conversation_history.messages AS message
+                        """,
+                        (session_id, current_turn_id, max_turns,)
+                    )
