@@ -106,12 +106,12 @@ class PostgresConversationHistoryStore:
         message_id = uuid4()
 
         with self.pool.connection() as connection:
-            with connection.transction():
+            with connection.transaction():
                 with connection.cursor(row_factory=dict_row) as cursor:
                     cursor.execute(
                         """
                         INSERT INTO conversation_history.messages (message_id, session_id, turn_id, role, content, metadata, created_at)
-                        VALUES (%S, %S, %S, %S, %S, %S, CURRENT_TIMESTAMP)
+                        VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
                         RETURNING message_id, session_id, turn_id, role, content, metadata, created_at
                         """,
                         (message_id, session_id, turn_id, role, content, Jsonb(resolve_metadata))
@@ -141,7 +141,7 @@ class PostgresConversationHistoryStore:
         save_user_message_row = self.save_message(session_id=session_id, turn_id=turn_id, role="user", content=original_query, metadata=metadata)
         return save_user_message_row
 
-    def save_assistent_message(self, session_id: UUID, turn_id: UUID, assistant_response: str, metadata: Mapping[str, Any] | None = None):
+    def save_assistant_message(self, session_id: UUID, turn_id: UUID, assistant_response: str, metadata: Mapping[str, Any] | None = None):
         save_assistant_message_row = self.save_message(session_id=session_id, turn_id=turn_id, role="assistant", content=assistant_response, metadata=metadata)
         return save_assistant_message_row
 
@@ -154,7 +154,7 @@ class PostgresConversationHistoryStore:
             return []
 
         with self.pool.connection() as connection:
-            with connection.tansaction():
+            with connection.transaction():
                 with connection.cursor(row_factory=dict_row) as cursor:
                     cursor.execute(
                         # WITH AS 建立一個只在本次 SQL 查詢中使用的暫時查詢結果 # WITH (命名) AS (答詢內容)
@@ -210,7 +210,9 @@ class PostgresConversationHistoryStore:
                     )
                     rows = cursor.fetchall()
 
+                    complete_turns = []
                     for row in rows:
-                        complete_turns = self.row_to_message(row)
+                        complete_turn = self.row_to_message(row)
+                        complete_turns.append(complete_turn)
 
         return complete_turns

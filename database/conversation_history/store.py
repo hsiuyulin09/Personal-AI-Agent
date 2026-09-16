@@ -44,7 +44,7 @@ class ConversationHistoryStore(Protocol):
         # ConversationMessage 指前面的 class onversationMessage
         ...
 
-    def load_prior_complete_turns(self, session_id: UUID, current_turn_id: UUID, max_turns: int) -> list[ConversationMessage]:
+    def load_recent_turns(self, session_id: UUID, current_turn_id: UUID, max_turns: int) -> list[ConversationMessage]:
         # 提供近期歷史對話紀錄給 context window manager
         ...
 
