@@ -36,7 +36,7 @@ def clear_test_data(pool):
                 )
 
 # 建立測試連線池
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session") # scope 是 keyword argument, 指定 fixture 的生命週期與共用範圍
 def pool():
     load_dotenv(PROJECT_ROOT/".env")
     test_dsn = getenv("POSTGRES_TEST_DSN")
@@ -55,3 +55,10 @@ def pool():
 
     yield connection_pool
     close_connection_pool(connection_pool)
+
+@pytest.fixture(autouse=True)
+# 測試前後清空 database
+def clean_database(pool: ConnectionPool):
+    clear_test_data(pool)
+    yield
+    clear_test_data(pool)
