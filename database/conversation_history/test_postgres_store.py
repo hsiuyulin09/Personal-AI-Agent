@@ -62,3 +62,9 @@ def clean_database(pool: ConnectionPool):
     clear_test_data(pool)
     yield
     clear_test_data(pool)
+
+@pytest.fixture
+# 測試用 pool 傳入 class PostgresConversationHistoryStore
+def store(pool: ConnectionPool):
+    test_database_store = PostgresConversationHistoryStore(pool)
+    return test_database_store
