@@ -68,3 +68,31 @@ def clean_database(pool: ConnectionPool):
 def store(pool: ConnectionPool):
     test_database_store = PostgresConversationHistoryStore(pool)
     return test_database_store
+
+def test_get_or_create_conversation(store:PostgresConversationHistoryStore):
+    conversation = store.get_or_create_current_conversation()
+
+    assert isinstance(conversation.session_id, UUID)
+    assert conversation.title is None
+    assert conversation.created_at <= conversation.updated_at
+
+def test_save_and_load_complete_turn(store:PostgresConversationHistoryStore):
+
+    # 產生測試資料
+    conversation = store.get_or_create_current_conversation()
+    turn_id = uuid4()
+    metadata = {"route":"llm_chat", "tokens": {"input":10}}
+
+    # 測試輸入 user query 和 assistant response
+    user_message = store.save_user_message(conversation.session_id, turn_id, "test query", metadata)
+    assistant_message = store.save_assistant_message(conversation.session_id, turn_id, "test response", metadata)
+
+    # 調取儲存後的測試內容
+    messages = store.load_recent_turns(conversation.session_id, current_turn_id=uuid4(), max_turns=1)
+
+    assert user_message.role == "user"
+    assert assistant_message.role == "assistant"
+    assert dict(user_message.metadata) == metadata
+    assert dict(assistant_message.metadata) == metadata
+    assert [message.role for message in messages] == ["user", "assistant"]
+    assert [message.content for message in messages] == ["test query", "test response"]
