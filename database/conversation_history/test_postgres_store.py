@@ -35,6 +35,7 @@ def clear_test_data(pool):
                     """
                 )
 
+
 # 建立測試連線池
 @pytest.fixture(scope="session") # scope 是 keyword argument, 指定 fixture 的生命週期與共用範圍
 def pool():
@@ -56,12 +57,14 @@ def pool():
     yield connection_pool
     close_connection_pool(connection_pool)
 
+
 @pytest.fixture(autouse=True)
 # 測試前後清空 database
 def clean_database(pool: ConnectionPool):
     clear_test_data(pool)
     yield
     clear_test_data(pool)
+
 
 @pytest.fixture
 # 測試用 pool 傳入 class PostgresConversationHistoryStore
@@ -96,3 +99,19 @@ def test_save_and_load_complete_turn(store:PostgresConversationHistoryStore):
     assert dict(assistant_message.metadata) == metadata
     assert [message.role for message in messages] == ["user", "assistant"]
     assert [message.content for message in messages] == ["test query", "test response"]
+
+def test_load_only_prior_complete_turns(store:PostgresConversationHistoryStore):
+    conversation = store.get_or_create_current_conversation()
+    prior_turn_id = uuid4()
+    incomplete_turn_id = uuid4()
+    current_turn_id = uuid4()
+
+    store.save_user_message(conversation.session_id, prior_turn_id, "last turn query")
+    store.save_assistant_message(conversation.session_id, prior_turn_id, "last turn response")
+    store.save_user_message(conversation.session_id, incomplete_turn_id, "incomplete turn query")
+    store.save_user_message(conversation.session_id, current_turn_id, "current turn query")
+    store.save_assistant_message(conversation.session_id, current_turn_id, "current turn response")
+
+    messages = store.load_recent_turns(conversation.session_id, current_turn_id=current_turn_id, max_turns=10)
+
+    assert [message.turn_id for message in messages] == [prior_turn_id, prior_turn_id]
