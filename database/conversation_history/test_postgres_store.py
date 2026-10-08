@@ -115,3 +115,18 @@ def test_load_only_prior_complete_turns(store:PostgresConversationHistoryStore):
     messages = store.load_recent_turns(conversation.session_id, current_turn_id=current_turn_id, max_turns=10)
 
     assert [message.turn_id for message in messages] == [prior_turn_id, prior_turn_id]
+
+# 檢查同一回合不能儲存重複的 role
+# 寫入失敗 rollback 後 ConnectionPool 可以繼續使用
+def test_store_recovers_after_duplicate_role(store:PostgresConversationHistoryStore):
+    conversation = store.get_or_create_current_conversation()
+    turn_id = uuid4()
+
+    store.save_user_message(conversation.session_id, turn_id, "first input")
+
+    with pytest.raises(UniqueViolation):
+        store.save_user_message(conversation.session_id, turn_id, "double input")
+
+    assistant_message = store.save_assistant_message(conversation.session_id, turn_id, "assistant response")
+
+    assert assistant_message.role == "assistant"
