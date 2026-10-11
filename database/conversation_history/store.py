@@ -52,33 +52,33 @@ class ConversationHistoryStore(Protocol):
         # 保存 LLM response
         ...
 
-    def create_conversation(self, title: str | None = None):
+    def create_conversation(self, title: str | None = None) -> Conversation:
         # 明確建立新的 session
         # title 可以在新建時留空
         ...
 
-    def get_conversation(self, session_id: UUID):
+    def get_conversation(self, session_id: UUID) -> Conversation | None:
         # 依完整 session_id 取得單一 session
         # 找不到時回傳 None
         ...
 
-    def list_conversation(self):
+    def list_conversations(self) -> list[Conversation]:
         # 取得所有 session
         # PostgreSQL 會依 updated_at 新到舊排序
         ...
 
-    def rename_conversation(self, session_id: UUID, title: str):
+    def rename_conversation(self, session_id: UUID, title: str) -> Conversation | None:
         # 修改指定 session 的 title
         # 找不到 session_id 時回傳 None
         ...
 
-    def delete_conversation(self, session_id: UUID):
+    def delete_conversation(self, session_id: UUID) -> bool:
         # 刪除指定 session_id 的 session
         # 成功刪除回傳 True，找不到時回傳 False
         # messages 會由 Database 的 ON DELETE CASCADE 刪除
         ...
 
-    def load_session_history(self, session_id: UUID, max_turns: str | None):
+    def load_session_history(self, session_id: UUID, max_turns: int | None) -> list[ConversationMessage]:
         # 讀取終端顯示使用的完整歷史回合
         # 正整數代表最近幾輪 None 代表全部完整回合
         # 這個值不影響 LLM Context Window
