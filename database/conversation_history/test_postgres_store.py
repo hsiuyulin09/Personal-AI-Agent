@@ -130,3 +130,6 @@ def test_store_recovers_after_duplicate_role(store:PostgresConversationHistorySt
     assistant_message = store.save_assistant_message(conversation.session_id, turn_id, "assistant response")
 
     assert assistant_message.role == "assistant"
+
+
+def 
