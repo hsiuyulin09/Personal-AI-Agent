@@ -272,3 +272,23 @@ class PostgresConversationHistoryStore:
 
                     conversation = self.row_to_conversation(create_row)
                     return conversation
+
+    def get_conversation(self, session_id: UUID) -> Conversation | None:
+        with self.pool.conversation() as connection:
+            with connection.transaction():
+                with connection.cursor(row_factory=dict_row) as cursor:
+                    cursor.execute(
+                        """
+                        SELECT session_id, title, created_at, updated_at
+                        FROM conversation_history.conversations
+                        WHERE session_id = %s
+                        """
+                        (session_id,)
+                    )
+                    get_row = cursor.fetchone()
+
+                    if get_row is None:
+                        return None
+
+                    conversation = self.row_to_conversation(get_row)
+                    return conversation
