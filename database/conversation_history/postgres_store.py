@@ -292,3 +292,52 @@ class PostgresConversationHistoryStore:
 
                     conversation = self.row_to_conversation(get_row)
                     return conversation
+
+    def list_conversations(self) -> list[Conversation]:
+        with self.pool.conversation() as connection:
+            with connection.transaction():
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        # DESC 降冪
+                        """
+                        SELECT session_id, title, created_at, updated_at
+                        FROM conversation_history.conversations
+                        ORDER BY updated_at DESC, session_id DESC
+                        """
+                    )
+                    conversation_rows = cursor.fetchall()
+
+                    conversations = []
+                    for row in conversation_rows:
+                        conversation = self.row_to_conversation(row)
+                        conversations.append(conversation)
+                    return conversations
+
+    def rename_conversation(self, session_id: UUID, title: str) -> Conversation | None:
+        if not isinstance(title, str):
+            raise TypeError("conversation title must be str")
+
+        if not title.strip() :
+            raise ValueError("conversation title must not be empty")
+
+        title = title.strip()
+
+        with self.pool.conversation() as connection:
+            with connection.transaction():
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        """
+                        UPDATE conversation_history.conversations
+                        SET title = %s, updated_at = CURRENT_TIMESTAMP
+                        WHERE session_id = %s
+                        RETURNING session_id, title, created_at, updated_at
+                        """
+                        (title, session_id)
+                    )
+                    rename_row = cursor.fetchone()
+
+                    if rename_row is None:
+                        return None
+
+                    conversation = self.row_to_conversation(rename_row)
+                    return conversation 
