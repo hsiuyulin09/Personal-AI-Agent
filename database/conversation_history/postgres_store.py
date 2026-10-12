@@ -8,6 +8,26 @@ from psycopg_pool import ConnectionPool
 
 from database.conversation_history.store import Conversation, ConversationMessage, MessageRole
 
+# PostgreSQL Stucture
+# ├── Database: personal_ai_agent
+# │   └── Schema: conversation_history
+# │       ├── Table: conversations
+# │       │   ├── session_id
+# │       │   ├── title
+# │       │   ├── created_at
+# │       │   └── updated_at
+# │       └── Table: messages
+# │           ├── message_id
+# │           ├── session_id
+# │           ├── turn_id
+# │           ├── role
+# │           ├── content
+# │           ├── metadata
+# │           └── created_at
+# └── Database: personal_ai_agent_test
+#     └── Schema: conversation_history
+#         ├── Table: conversations
+#         └── Table: messages
 
 class PostgresConversationHistoryStore:
     def __init__(self, pool: ConnectionPool):
@@ -74,8 +94,12 @@ class PostgresConversationHistoryStore:
                         # VALUES 對應 INSERT INTO 的欄位順序新增到資料表中
                         # RETURNING 將指定 (目前新增的一筆) 欄位資料回傳
                         """
-                        INSERT INTO conversation_history.conversations (session_id, title, created_at, updated_at)
-                        VALUES (%s, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                        INSERT INTO conversation_history.conversations (
+                            session_id, title, created_at, updated_at
+                        )
+                        VALUES (
+                            %s, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                        )
                         RETURNING session_id, title, created_at, updated_at
                         """,
                         (session_id,)
@@ -110,8 +134,12 @@ class PostgresConversationHistoryStore:
                 with connection.cursor(row_factory=dict_row) as cursor:
                     cursor.execute(
                         """
-                        INSERT INTO conversation_history.messages (message_id, session_id, turn_id, role, content, metadata, created_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+                        INSERT INTO conversation_history.messages (
+                            message_id, session_id, turn_id, role, content, metadata, created_at
+                        )
+                        VALUES (
+                            %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP
+                        )
                         RETURNING message_id, session_id, turn_id, role, content, metadata, created_at
                         """,
                         (message_id, session_id, turn_id, role, content, Jsonb(resolve_metadata))
@@ -204,7 +232,6 @@ class PostgresConversationHistoryStore:
                             END ASC,
                             message.created_at ASC,
                             message.message_id ASC
-
                         """,
                         (session_id, current_turn_id, max_turns, session_id)
                     )
@@ -216,3 +243,32 @@ class PostgresConversationHistoryStore:
                         complete_turns.append(complete_turn)
 
         return complete_turns
+
+    def create_conversation(self, title: str | None = None) -> Conversation:
+        if title is not None and not isinstance(title, str):
+            raise TypeError("conversation title must be str or None")
+
+        session_id = uuid4()
+
+        with self.pool.conversation() as connection:
+            with connection.transaction():
+                with connection.cursor(row_factory=dict_row) as cursor:
+                    cursor.execute(
+                        """
+                        INSERT INTO conversation_history.conversations (
+                            session_id, title, created_at, updated_at
+                        )
+                        VALUES (
+                            %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                        )
+                        RETURNING session_id, title, created_at, updated_at
+                        """
+                        (session_id, title)
+                    )
+                    create_row = cursor.fetchone()
+
+                    if create_row is None:
+                        raise RuntimeError("conversation was created but no row was returned")
+
+                    conversation = self.row_to_conversation(create_row)
+                    return conversation
