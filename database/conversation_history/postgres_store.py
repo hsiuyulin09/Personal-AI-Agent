@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, cast
+from typing import Any
 from uuid import UUID, uuid4
 
 from psycopg.rows import dict_row
@@ -357,14 +357,14 @@ class PostgresConversationHistoryStore:
                     delete_row = cursor.fetchone()
 
                     if delete_row is None:
-                        return None
+                        return False
                     
                     return True
 
     def load_session_history(self, session_id: UUID, max_turns: int | None) -> list[ConversationMessage]:
         if max_turns is not None:
             if not isinstance(max_turns, int) or isinstance(max_turns, bool) or max_turns <= 0:
-                raise ValueError("max_turns must be int or None")
+                raise ValueError("max_turns must be positive int or None")
             
         with self.pool.connection() as connection:
             with connection.transaction():
@@ -384,12 +384,12 @@ class PostgresConversationHistoryStore:
                             ORDER BY turn_started_at DESC, turn_id DESC
                             LIMIT %s
                         )
-                        SELECT messages.message_id, messages.session_id, messages.turn_id, messages.role, messages.content, messages.metadata, messages.created_at
+                        SELECT message.message_id, message.session_id, message.turn_id, message.role, message.content, message.metadata, message.created_at
                         FROM conversation_history.messages AS message
                         INNER JOIN selected_complete_turns
                             ON selected_complete_turns.turn_id = message.turn_id
-                        WHERE session_id = %s
-                        ORDER BY selected_complete_turns.turn_started_at ASC, selected_complete_turns.turn_id ASC
+                        WHERE message.session_id = %s
+                        ORDER BY selected_complete_turns.turn_started_at ASC, selected_complete_turns.turn_id ASC,
                             CASE message.role
                                 WHEN 'user' THEN 0
                                 WHEN 'assistant' THEN 1
@@ -401,7 +401,7 @@ class PostgresConversationHistoryStore:
 
                     session_history = []
                     for row in history_rows:
-                        message = self.row_to_conversation(row)
+                        message = self.row_to_message(row)
                         session_history.append(message)
 
                     return session_history
