@@ -250,7 +250,7 @@ class PostgresConversationHistoryStore:
 
         session_id = uuid4()
 
-        with self.pool.conversation() as connection:
+        with self.pool.connection() as connection:
             with connection.transaction():
                 with connection.cursor(row_factory=dict_row) as cursor:
                     cursor.execute(
@@ -262,7 +262,7 @@ class PostgresConversationHistoryStore:
                             %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
                         )
                         RETURNING session_id, title, created_at, updated_at
-                        """
+                        """,
                         (session_id, title)
                     )
                     create_row = cursor.fetchone()
@@ -274,7 +274,7 @@ class PostgresConversationHistoryStore:
                     return conversation
 
     def get_conversation(self, session_id: UUID) -> Conversation | None:
-        with self.pool.conversation() as connection:
+        with self.pool.connection() as connection:
             with connection.transaction():
                 with connection.cursor(row_factory=dict_row) as cursor:
                     cursor.execute(
@@ -282,7 +282,7 @@ class PostgresConversationHistoryStore:
                         SELECT session_id, title, created_at, updated_at
                         FROM conversation_history.conversations
                         WHERE session_id = %s
-                        """
+                        """,
                         (session_id,)
                     )
                     get_row = cursor.fetchone()
@@ -294,9 +294,9 @@ class PostgresConversationHistoryStore:
                     return conversation
 
     def list_conversations(self) -> list[Conversation]:
-        with self.pool.conversation() as connection:
+        with self.pool.connection() as connection:
             with connection.transaction():
-                with connection.cursor() as cursor:
+                with connection.cursor(row_factory=dict_row) as cursor:
                     cursor.execute(
                         # DESC 降冪
                         """
@@ -317,21 +317,21 @@ class PostgresConversationHistoryStore:
         if not isinstance(title, str):
             raise TypeError("conversation title must be str")
 
-        if not title.strip() :
+        if not title.strip():
             raise ValueError("conversation title must not be empty")
 
         title = title.strip()
 
-        with self.pool.conversation() as connection:
+        with self.pool.connection() as connection:
             with connection.transaction():
-                with connection.cursor() as cursor:
+                with connection.cursor(row_factory=dict_row) as cursor:
                     cursor.execute(
                         """
                         UPDATE conversation_history.conversations
                         SET title = %s, updated_at = CURRENT_TIMESTAMP
                         WHERE session_id = %s
                         RETURNING session_id, title, created_at, updated_at
-                        """
+                        """,
                         (title, session_id)
                     )
                     rename_row = cursor.fetchone()
@@ -340,4 +340,68 @@ class PostgresConversationHistoryStore:
                         return None
 
                     conversation = self.row_to_conversation(rename_row)
-                    return conversation 
+                    return conversation
+
+    def delete_conversation(self, session_id: UUID) -> bool:
+        with self.pool.connection() as connection:
+            with connection.transaction():
+                with connection.cursor(row_factory=dict_row) as cursor:
+                    cursor.execute(
+                        """
+                        DELETE FROM conversation_history.conversations
+                        WHERE session_id = %s
+                        RETURNING session_id
+                        """,
+                        (session_id,)
+                    )
+                    delete_row = cursor.fetchone()
+
+                    if delete_row is None:
+                        return None
+                    
+                    return True
+
+    def load_session_history(self, session_id: UUID, max_turns: int | None) -> list[ConversationMessage]:
+        if max_turns is not None:
+            if not isinstance(max_turns, int) or isinstance(max_turns, bool) or max_turns <= 0:
+                raise ValueError("max_turns must be int or None")
+            
+        with self.pool.connection() as connection:
+            with connection.transaction():
+                with connection.cursor(row_factory=dict_row) as cursor:
+                    cursor.execute(
+                        # turn_started_at 將每個完整回合依 turn_id 分組並取得每個回合中 User 的時間作為該 turn 的開始時間
+                        """
+                        WITH selected_complete_turns AS (
+                            SELECT turn_id, MIN(created_at) FILTER(WHERE role = 'user') AS turn_started_at
+                            FROM conversation_history.messages
+                            WHERE session_id = %s
+                            GROUP BY turn_id
+                            HAVING
+                                COUNT(*) FILTER(WHERE role = 'user') = 1
+                                AND
+                                COUNT(*) FILTER(WHERE role = 'assistant') = 1
+                            ORDER BY turn_started_at DESC, turn_id DESC
+                            LIMIT %s
+                        )
+                        SELECT messages.message_id, messages.session_id, messages.turn_id, messages.role, messages.content, messages.metadata, messages.created_at
+                        FROM conversation_history.messages AS message
+                        INNER JOIN selected_complete_turns
+                            ON selected_complete_turns.turn_id = message.turn_id
+                        WHERE session_id = %s
+                        ORDER BY selected_complete_turns.turn_started_at ASC, selected_complete_turns.turn_id ASC
+                            CASE message.role
+                                WHEN 'user' THEN 0
+                                WHEN 'assistant' THEN 1
+                            END ASC, message.created_at ASC, message.message_id ASC
+                        """,
+                        (session_id, max_turns, session_id)
+                    )
+                    history_rows = cursor.fetchall()
+
+                    session_history = []
+                    for row in history_rows:
+                        message = self.row_to_conversation(row)
+                        session_history.append(message)
+
+                    return session_history
