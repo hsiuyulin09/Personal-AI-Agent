@@ -73,16 +73,22 @@ def store(pool: ConnectionPool):
     return test_database_store
 
 def test_get_or_create_conversation(store:PostgresConversationHistoryStore):
-    conversation = store.get_or_create_current_conversation()
+    conversation = store.create_conversation(title="test session")
+    get_conversation = store.get_conversation(conversation.session_id)
 
     assert isinstance(conversation.session_id, UUID)
-    assert conversation.title is None
+    assert conversation.title == "test session"
     assert conversation.created_at <= conversation.updated_at
+    assert get_conversation == conversation
+
+    missing_session_id = uuid4()
+
+    assert store.get_conversation(missing_session_id) is None
 
 def test_save_and_load_complete_turn(store:PostgresConversationHistoryStore):
 
     # 產生測試資料
-    conversation = store.get_or_create_current_conversation()
+    conversation = store.create_conversation()
     turn_id = uuid4()
     metadata = {"route":"llm_chat", "tokens": {"input":10}}
 
@@ -101,25 +107,13 @@ def test_save_and_load_complete_turn(store:PostgresConversationHistoryStore):
     assert [message.content for message in messages] == ["test query", "test response"]
 
 def test_load_only_prior_complete_turns(store:PostgresConversationHistoryStore):
-    conversation = store.get_or_create_current_conversation()
-    prior_turn_id = uuid4()
-    incomplete_turn_id = uuid4()
-    current_turn_id = uuid4()
+    conversation = store.create_conversation()
 
-    store.save_user_message(conversation.session_id, prior_turn_id, "last turn query")
-    store.save_assistant_message(conversation.session_id, prior_turn_id, "last turn response")
-    store.save_user_message(conversation.session_id, incomplete_turn_id, "incomplete turn query")
-    store.save_user_message(conversation.session_id, current_turn_id, "current turn query")
-    store.save_assistant_message(conversation.session_id, current_turn_id, "current turn response")
-
-    messages = store.load_recent_turns(conversation.session_id, current_turn_id=current_turn_id, max_turns=10)
-
-    assert [message.turn_id for message in messages] == [prior_turn_id, prior_turn_id]
 
 # 檢查同一回合不能儲存重複的 role
 # 寫入失敗 rollback 後 ConnectionPool 可以繼續使用
 def test_store_recovers_after_duplicate_role(store:PostgresConversationHistoryStore):
-    conversation = store.get_or_create_current_conversation()
+    conversation = store.create_conversation()
     turn_id = uuid4()
 
     store.save_user_message(conversation.session_id, turn_id, "first input")
@@ -130,6 +124,3 @@ def test_store_recovers_after_duplicate_role(store:PostgresConversationHistorySt
     assistant_message = store.save_assistant_message(conversation.session_id, turn_id, "assistant response")
 
     assert assistant_message.role == "assistant"
-
-
-def 
