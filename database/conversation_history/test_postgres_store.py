@@ -123,15 +123,15 @@ def test_load_only_prior_complete_turns(store:PostgresConversationHistoryStore):
 
     complete_user_messages = []
 
-    # complete_turns = [
+    # complete_user_messages = [
     # (first_user_message, first_assistant_message),
     # (second_user_message, second_assistant_message)
     # ]
 
     for turn_id, user_content, assistant_content in complete_turn_inputs:
         user_message = store.save_user_message(conversation.session_id, turn_id, user_content)
-        assistant_content = store.save_assistant_message(conversation.session_id, turn_id, assistant_content)
-        complete_user_messages.append((user_message, assistant_content))
+        assistant_message = store.save_assistant_message(conversation.session_id, turn_id, assistant_content)
+        complete_user_messages.append((user_message, assistant_message))
     
     # 不完整 query
     store.save_user_message(conversation.session_id, incomplete_turn_id, "incomplete query")
@@ -148,10 +148,10 @@ def test_load_only_prior_complete_turns(store:PostgresConversationHistoryStore):
     )
 
     # 取出預期的正確兩個 turns
-    expected_turns = complete_user_messages[-2:]
+    expected_turns = ordered_complete_turns[-2:]
     expected_messages = []
-    for user_message, assistant_messge in expected_turns:
-        expected_messages.extend([user_message, assistant_messge])
+    for user_message, assistant_message in expected_turns:
+        expected_messages.extend([user_message, assistant_message])
 
     assert [message.turn_id for message in messages] == [message.turn_id for message in expected_messages]
     assert [message.role for message in messages] == [message.role for message in expected_messages]
@@ -161,7 +161,6 @@ def test_load_only_prior_complete_turns(store:PostgresConversationHistoryStore):
     assert incomplete_turn_id not in returned_turn_ids
     assert current_turn_id not in returned_turn_ids
     
-
 # 檢查同一回合不能儲存重複的 role
 # 寫入失敗 rollback 後 ConnectionPool 可以繼續使用
 def test_store_recovers_after_duplicate_role(store:PostgresConversationHistoryStore):
