@@ -109,6 +109,58 @@ def test_save_and_load_complete_turn(store:PostgresConversationHistoryStore):
 def test_load_only_prior_complete_turns(store:PostgresConversationHistoryStore):
     conversation = store.create_conversation()
 
+    first_turn_id = uuid4()
+    second_turn_id = uuid4()
+    third_turn_id = uuid4()
+    incomplete_turn_id = uuid4()
+    current_turn_id = uuid4()
+
+    complete_turn_inputs = [
+        (first_turn_id, "first query", "first response"),
+        (second_turn_id, "second query", "second response"),
+        (third_turn_id, "third query", "third response")
+    ]
+
+    complete_user_messages = []
+
+    # complete_turns = [
+    # (first_user_message, first_assistant_message),
+    # (second_user_message, second_assistant_message)
+    # ]
+
+    for turn_id, user_content, assistant_content in complete_turn_inputs:
+        user_message = store.save_user_message(conversation.session_id, turn_id, user_content)
+        assistant_content = store.save_assistant_message(conversation.session_id, turn_id, assistant_content)
+        complete_user_messages.append((user_message, assistant_content))
+    
+    # 不完整 query
+    store.save_user_message(conversation.session_id, incomplete_turn_id, "incomplete query")
+
+    # 當前的 turn
+    store.save_user_message(conversation.session_id, current_turn_id, "current query")
+    store.save_assistant_message(conversation.session_id, current_turn_id, "current response")
+
+    messages = store.load_recent_turns(conversation.session_id, current_turn_id=current_turn_id, max_turns=2)
+
+    ordered_complete_turns = sorted(
+        complete_user_messages, key=lambda turn:(turn[0].created_at, turn[0].turn_id)
+        # key=lambda 建立匿名函式
+    )
+
+    # 取出預期的正確兩個 turns
+    expected_turns = complete_user_messages[-2:]
+    expected_messages = []
+    for user_message, assistant_messge in expected_turns:
+        expected_messages.extend([user_message, assistant_messge])
+
+    assert [message.turn_id for message in messages] == [message.turn_id for message in expected_messages]
+    assert [message.role for message in messages] == [message.role for message in expected_messages]
+    assert [message.content for message in messages] == [message.content for message in expected_messages]
+
+    returned_turn_ids = [message.turn_id for message in messages]
+    assert incomplete_turn_id not in returned_turn_ids
+    assert current_turn_id not in returned_turn_ids
+    
 
 # 檢查同一回合不能儲存重複的 role
 # 寫入失敗 rollback 後 ConnectionPool 可以繼續使用
