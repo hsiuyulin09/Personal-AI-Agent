@@ -175,3 +175,51 @@ def test_store_recovers_after_duplicate_role(store:PostgresConversationHistorySt
     assistant_message = store.save_assistant_message(conversation.session_id, turn_id, "assistant response")
 
     assert assistant_message.role == "assistant"
+
+def test_sessions_independent(store:PostgresConversationHistoryStore):
+    first_conversation = store.create_conversation()
+    second_conversation = store.create_conversation()
+
+    first_turn_id = uuid4()
+    second_turn_id = uuid4()
+
+    store.save_user_message(first_conversation.session_id, first_turn_id, "first session query")
+    store.save_assistant_message(first_conversation.session_id, first_turn_id, "first session response")
+    store.save_user_message(second_conversation.session_id, second_turn_id, "second session query")
+    store.save_assistant_message(second_conversation.session_id, second_turn_id, "second session response")
+
+    # 取出存入 database 的 messages
+    first_session_messages = store.load_recent_turns(
+        first_conversation.session_id,
+        current_turn_id=uuid4(), # 隨機產生一個 id 避開原本 function 排除最近 id 的功能
+        max_turns=1
+    )
+    second_session_messages = store.load_recent_turns(
+        second_conversation.session_id,
+        current_turn_id=uuid4(),
+        max_turns=1
+    )
+
+    # first_messages
+    # └── ConversationMessage
+    #     ├── message_id
+    #     ├── session_id
+    #     ├── turn_id
+    #     ├── role
+    #     ├── content
+    #     ├── metadata
+    #     └── created_at
+
+    first_content = [message.content for message in first_session_messages]
+    second_content = [message.content for message in second_session_messages]
+
+    assert first_content == ["first session query", "first session response"]
+    assert second_content == ["second session query", "second session response"]
+    assert all(
+        message.session_id == first_conversation.session_id
+        for message in first_session_messages
+    )
+    assert all(
+        message.session_id == second_conversation.session_id
+        for message in second_session_messages
+    )
