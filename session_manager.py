@@ -1,5 +1,5 @@
 from uuid import UUID
-from database.conversation_history.store import Conversation, ConversationHistoryStore
+from database.conversation_history.store import Conversation, ConversationHistoryStore, ConversationMessage
 
 # 顯示 Session 歷史時的預設回合數
 DEFAULT_HISTORY_TURNS = 5
@@ -31,7 +31,7 @@ class SessionManager:
     def get_current_session(self) -> Conversation:
         conversation = self.store.get_conversation(self.current_session_id)
             # 以目前 ID 重新從 Database 取得完整 Conversation 資料        
-        if conversation is NoneL
+        if conversation is None:
             raise RuntimeError("current session do not exist")
         return conversation
 
@@ -44,7 +44,7 @@ class SessionManager:
         conversation_list = self.store.list_conversations()
         return conversation_list
 
-    def get_session(self, session_id: UUID) -> Conversation:
+    def get_session(self, session_id: UUID) -> Conversation | None:
         self.validate_session_id(session_id)
             # 此階段只接受完整 UUID, 短 UUID 與 title 解析留給入口
         conversation = self.store.get_conversation(session_id)
@@ -71,15 +71,15 @@ class SessionManager:
         self.validate_session_id(session_id)
         deleted = self.store.delete_conversation(session_id)
 
-        if self._current_session_id == session_id:
+        if deleted and self._current_session_id == session_id:
             replacement = self.store.get_or_create_current_conversation()
             self._current_session_id = replacement.session_id
         return deleted
 
-    def load_session_history(self, session_id: UUID | None = None, max_turns=int | None = DEFAULT_HISTORY_TURNS) -> list[Conversation]:
+    def load_session_history(self, session_id: UUID | None = None, max_turns: int | None = DEFAULT_HISTORY_TURNS) -> list[ConversationMessage]:
         # 未指定 session_id 時讀取當前 session
         if session_id is None:
-            resolved_session_id = self._current_session_id
+            resolved_session_id = self.current_session_id
         else:
             resolved_session_id = session_id
 
@@ -97,5 +97,5 @@ class SessionManager:
         if conversation is None:
             raise ValueError(f"session not exist (session id: {resolved_session_id})")
 
-        conversation_history = self.load_session_history(resolved_session_id)
+        conversation_history = self.store.load_session_history(resolved_session_id, max_turns)
         return conversation_history
