@@ -3,6 +3,11 @@ from system_orchestrator import run_system_turn
 from system_state import create_system_state
 from trace_utils import setup_tracer, TokenTracker # opentelemetry trace tools
 
+from database.connection import create_connection_pool, close_connection_pool
+from database.conversation_history.postgres_store import PostgresConversationHistoryStore
+from session_manager import SessionManager
+
+
 config, provider_config, api_key = load_config()
 client = create_client(provider_config, api_key)
 tracer = setup_tracer()
@@ -21,30 +26,41 @@ parameters = {
 system_state = create_system_state(parameters)
 token_tracker = TokenTracker()
 
-print(f"Model Provider: {provider_name}")
-print(f"Model Name: {model}")
-print(f"Skill list: {system_state.skill.skill_ids}")
-print("Key in 'quit' while you want to end the chat.")
-print("assistant: 您好，很高興見到您。您有任何問題需要協助嗎？")
-print("=" * 100)
+pool = create_connection_pool()
 
-while True:
-    user_query = input("\nuser: ").strip()
+try:
+    conversation_store = PostgresConversationHistoryStore(pool)
+    session_manager = SessionManager(conversation_store)
+    session_manager.initialize_current_session()
 
-    if user_query.lower() in ["q", "quit"]:
-        print("system off")
-        break
+    print(f"Model Provider: {provider_name}")
+    print(f"Model Name: {model}")
+    print(f"Skill list: {system_state.skill.skill_ids}")
+    print("Key in 'quit' while you want to end the chat.")
+    print("=" * 100)
 
-    if not user_query:
-        continue
+    while True:
+        user_query = input("\nuser: ").strip()
 
-    response = run_system_turn(user_query, system_state, client, tracer, config, parameters, provider_name, model, token_tracker)
-        # 執行整個系統
+        if user_query.lower() in ["q", "quit"]:
+            print("system off")
+            break
 
-    token_tracker.print_usage()
+        if not user_query:
+            continue
 
-    if response:
-        print("=" * 100)
-        print(f"user: {user_query}")
-        print(f"assistant: {response}")
-        print("=" * 100)
+        response = run_system_turn(user_query, system_state, client, tracer, config, parameters, provider_name, model, token_tracker)
+            # 執行整個系統
+
+        token_tracker.print_usage()
+
+        if response:
+            print("=" * 100)
+            print(f"user: {user_query}")
+            print(f"assistant: {response}")
+            print("=" * 100)
+
+# finally 會在 try 裡的程式結束時執行
+    # 包含: 使用者輸入 quit 讓 while 透過 break 結束, 程式途中發生錯誤, 對話迴圈因其他原因結束
+finally:
+    close_connection_pool(pool)
