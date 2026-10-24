@@ -75,3 +75,27 @@ class SessionManager:
             replacement = self.store.get_or_create_current_conversation()
             self._current_session_id = replacement.session_id
         return deleted
+
+    def load_session_history(self, session_id: UUID | None = None, max_turns=int | None = DEFAULT_HISTORY_TURNS) -> list[Conversation]:
+        # 未指定 session_id 時讀取當前 session
+        if session_id is None:
+            resolved_session_id = self._current_session_id
+        else:
+            resolved_session_id = session_id
+
+        self.validate_session_id(resolved_session_id)
+
+        if max_turns is not None and (
+            not isinstance(max_turns, int)
+            or isinstance(max_turns, bool)
+            or max_turns <= 0
+        ):
+            raise ValueError("max_turns must be a positive int or None")
+
+        # 不存在和沒有歷史的 Session 都會得到空 list 因此先確認 session 存在, 避免情況無法區分
+        conversation = self.store.get_conversation(resolved_session_id)
+        if conversation is None:
+            raise ValueError(f"session not exist (session id: {resolved_session_id})")
+
+        conversation_history = self.load_session_history(resolved_session_id)
+        return conversation_history
