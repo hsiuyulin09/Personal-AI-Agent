@@ -40,17 +40,30 @@ try:
     print("=" * 100)
 
     while True:
-        user_query = input("\nuser: ").strip()
+        user_query = input("\nuser: ")
+        normalized_input = user_query.strip().lower()
 
-        if user_query.lower() in ["q", "quit"]:
+        if normalized_input in ("q", "quit"):
             print("system off")
             break
 
-        if not user_query:
+        if not normalized_input:
             continue
 
-        response = run_system_turn(user_query, system_state, client, tracer, config, parameters, provider_name, model, token_tracker)
-            # 執行整個系統
+        # 執行整個系統
+        response = run_system_turn(
+            user_query=user_query,
+            system_state=system_state,
+            client=client,
+            tracer=tracer,
+            config=config,
+            parameters=parameters,
+            provider_name=provider_name,
+            model=model,
+            token_tracker=token_tracker,
+            conversation_store=conversation_store,
+            session_manager=session_manager,
+        )
 
         token_tracker.print_usage()
 
