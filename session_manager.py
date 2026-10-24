@@ -34,3 +34,44 @@ class SessionManager:
         if conversation is NoneL
             raise RuntimeError("current session do not exist")
         return conversation
+
+    def create_session(self, title:str | None = None) -> Conversation:
+        conversation = self.store.create_conversation(title)
+        self._current_session_id = conversation.session_id
+        return conversation
+
+    def list_sessions(self) -> list[Conversation]:
+        conversation_list = self.store.list_conversations()
+        return conversation_list
+
+    def get_session(self, session_id: UUID) -> Conversation:
+        self.validate_session_id(session_id)
+            # 此階段只接受完整 UUID, 短 UUID 與 title 解析留給入口
+        conversation = self.store.get_conversation(session_id)
+        return conversation
+
+    def switch_session(self, session_id: UUID) -> Conversation:
+        conversation = self.get_session(session_id)
+
+        if conversation is None:
+            raise ValueError(f"{session_id} this session id do not exist")
+
+        self._current_session_id = conversation.session_id
+        return conversation
+
+    def rename_session(self, session_id: UUID, title: str) -> Conversation:
+        self.validate_session_id(session_id)
+        conversation = self.store.rename_conversation(session_id, title)
+
+        if conversation is None:
+            raise ValueError(f"{session_id} this session id do not exist")
+        return conversation
+
+    def delete_session(self, session_id: UUID) -> bool:
+        self.validate_session_id(session_id)
+        deleted = self.store.delete_conversation(session_id)
+
+        if self._current_session_id == session_id:
+            replacement = self.store.get_or_create_current_conversation()
+            self._current_session_id = replacement.session_id
+        return deleted
