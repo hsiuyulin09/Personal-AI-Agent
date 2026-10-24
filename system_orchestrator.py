@@ -1,4 +1,5 @@
-from context_window_manager import DEFAULT_THREAD_ID, default_context_window_manager
+from uuid import uuid4
+from context_window_manager import default_context_window_manager
 from llm_chat import run_llm_chat_turn
 from llm_client import call_llm
 from system_schemas import SystemHintResult
@@ -22,7 +23,7 @@ def run_system_hint(user_query, context_window, system_state, client, tracer, co
         system_route_result = SystemHintResult(route="llm_chat", reason="No skill or RAG metadata registered.")
         return system_route_result
 
-    hint_messages = build_system_hint_messages(user_query=user_query, skill_metadata=system_state.skill.skill_metadata, rag_metadata=system_state.rag.rag_metadata, context_window=context_window)
+    hint_messages = build_system_hint_messages(user_query, system_state.skill.skill_metadata, system_state.rag.rag_metadata, context_window)
     hint_result = call_llm(client, tracer, hint_messages, system_state.agent_parameters, config, node_name="system_hint", token_tracker=token_tracker, response_format={"type": "json_object"}, result_model=SystemHintResult)
 
     if hint_result.route == "skill" and not has_registered_skills(system_state):
@@ -85,10 +86,21 @@ def run_rag_turn(user_query, context_window, system_state, client, tracer, confi
     return response
 
 
-def run_system_turn(user_query, system_state, client, tracer, config, parameters, provider_name, model, token_tracker, context_manager=default_context_window_manager, thread_id=DEFAULT_THREAD_ID):
+def run_system_turn(user_query, system_state, client, tracer, config, parameters, provider_name, model, token_tracker, conversation_store, session_manager, context_manager=default_context_window_manager):
     # 實際系統流程
     with trace_system(tracer, token_tracker, provider_name, model):
-        context_window = context_manager.prepare_context(user_query, thread_id)
+        session_id = session_manager.current_session_id
+        thread_id = str(session_id)
+        turn_id = uuid4()
+
+        conversation_store.save_user_message(session_id, turn_id, user_query)
+
+        prior_messages = conversation_store.load_recent_turns(session_id, turn_id, context_manager.max_turns)
+        history_messages = [
+            {"role": message.role, "content": message.content}
+            for message in prior_messages
+        ]
+        context_window = context_manager.prepare_context(user_query, history_messages, thread_id)
             # Context Window Manager 裁切取得 context window
 
         hint_result = run_system_hint(user_query, context_window, system_state, client, tracer, config, token_tracker)
@@ -96,7 +108,12 @@ def run_system_turn(user_query, system_state, client, tracer, config, parameters
 
         if hint_result.route == "skill": # 走 skill system
             context_result = run_skill_turn(user_query, context_window, system_state, client, tracer, config, provider_name, model, token_tracker)
-            response = run_responder(user_query=user_query, context_result=context_result, client=client, tracer=tracer, config=config, parameters=parameters, token_tracker=token_tracker)
+
+            # Skill Hinter 進一步判斷沒有適用 Skill 時改走一般聊天
+            if context_result is None:
+                response = run_llm_chat_turn(user_query, client, tracer, config, parameters, token_tracker, context_window)
+            else:
+                response = run_responder(user_query, context_result, client, tracer, config, parameters, token_tracker)
 
         elif hint_result.route == "rag": # 走 RAG system
             response = run_rag_turn(user_query, context_window, system_state, client, tracer, config, parameters, token_tracker)
@@ -109,8 +126,9 @@ def run_system_turn(user_query, system_state, client, tracer, config, parameters
             raise ValueError(f"Unknown system route: {hint_result.route}")
             # hinter 輸出 route 結果有問題 (實際應該在 pydantic 就被阻擋)
 
-        if response:
-            context_manager.save_turn(user_query, response, thread_id)
-                # 三條 route 的回答統一交回 Context Window Manager 保存
+        if not response:
+            raise RuntimeError("assistant response is empty")
+        
+        conversation_store.save_assistant_message(session_id, turn_id, response)
 
         return response
