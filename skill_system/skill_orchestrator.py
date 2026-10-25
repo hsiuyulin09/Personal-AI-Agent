@@ -22,7 +22,7 @@ def run_skill_agent_turn(user_query, context_window, client, tracer, config, age
             hint_result = call_llm(client, tracer, hint_messages, agent_parameters, config, node_name="hint", token_tracker=token_tracker, response_format={"type": "json_object"}, result_model=HintResult)
 
             if not hint_result.scope:
-                raise ValueError("Skill Hinter found no matching skill.")
+                return None
 
             elif hint_result.full_table_request:
                 skill_id=hint_result.skill_id
