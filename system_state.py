@@ -1,13 +1,12 @@
-from operator import add
 from dataclasses import dataclass, field
-from typing import Annotated, TypedDict
+from typing import TypedDict
 
 from skill_system.skill_state import SkillState, create_skill_state
 
 
 class ContextWindowState(TypedDict, total=False): # 定義 context_window_manager LangGraph 內的資料結構
-    # messages 由 LangGraph reducer 處理累加 (add)
-    messages: Annotated[list[dict], add] # Annotated[資料型別, 額外資訊]
+    # messages 每輪由 Conversation Store 載入並覆寫, 由 database 系統處理紀錄, 不使用跨輪累加
+    messages: list[dict]
     original_query: str
     active_context: list[dict]
     retrieved_memories: list[dict]
