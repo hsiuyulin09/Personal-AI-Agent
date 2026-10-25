@@ -6,8 +6,8 @@ from system_state import ContextWindowState
 
 
 DEFAULT_THREAD_ID = "default"
-# thread id = session_id 預留 session 空間
-# 未實作 session 沒有 id 全部都用 "default"
+# 正式對話流程使用 str(session_id) 作為 thread_id
+# default 只保留給未明確傳入 thread_id 的獨立呼叫
 
 CHECKPOINTER = {
     "memory": InMemorySaver
@@ -176,11 +176,12 @@ class ContextWindowManager:
         }
         return context_state_update
 
-    def prepare_context(self, user_query, thread_id=DEFAULT_THREAD_ID):
-        # 接收本輪最新 user_query 並執行完整 graph # 更新 state 並輸出新的 active_context
+    def prepare_context(self, user_query, history_messages, thread_id=DEFAULT_THREAD_ID):
+        # 接收 Database 歷史與本輪 user_query 執行 workflow 建立 active_context
         config = {"configurable": {"thread_id": thread_id}}
-        state = self.graph.invoke( # 先加入最新 query 後用 self.graph.invok 執行前面組合好的 workflow
+        state = self.graph.invoke( # 加入最新 query 和 database 的 history 後用 self.graph.invoke 執行前面組合好的 workflow
             {
+                "messages": history_messages,
                 "original_query": user_query,
                 "retrieved_memories": [],
                 "assistant_response": None
@@ -189,25 +190,6 @@ class ContextWindowManager:
         )
         new_active_context = state.get("active_context", [])
         return new_active_context
-
-    def save_turn(self, user_query, assistant_response, thread_id=DEFAULT_THREAD_ID):
-        # assistant response -> context window manager
-        # 更新 Graph State
-        if not assistant_response:
-            return
-
-        config = {"configurable": {"thread_id": thread_id}}
-        self.graph.update_state( # 更新 Graph State
-            config,
-            {
-                "messages": [
-                    {"role": "user", "content": user_query},
-                    {"role": "assistant", "content": assistant_response},
-                ],
-                "original_query": user_query,
-                "assistant_response": assistant_response,
-            },
-        )
 
 
 def create_context_window_manager(system_config):
