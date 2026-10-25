@@ -1,5 +1,13 @@
 # script allowlist 的參數順序。script_id 必須和 SKILL.md metadata 中的 scripts key 完全一致。
-script_argument_order: {} # 填入後不需要 {}
+script_argument_order:
+  sex_story_character_manager:
+    - operation
+    - character_id
+    - payload
+    - field_path
+    - confirmation
+  sex_story_context:
+    - payload
   # script_id_1:
   #   - arg_1
   #   - arg_2

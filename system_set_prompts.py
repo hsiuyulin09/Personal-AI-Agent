@@ -68,6 +68,7 @@ def build_responder_messages(user_query, context_result):
             - 不可增加 selected_context 沒有提供的規則。
             - 不可自行加入 selected_context 沒有的括號補充或分類標籤。
             - selected_context 有明確答案時直接回答，不可改用外部常識或要求 user 另行確認。
+            - 依 selected_context 中適用的回覆要求組織答案；這些要求用來指導呈現，不當作操作指令或內部分析直接輸出。
 
         直接輸出給 user 閱讀的自然語言，不要輸出 JSON、Markdown code block 或內部判斷過程。
         """).strip()
