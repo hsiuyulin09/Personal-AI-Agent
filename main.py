@@ -5,6 +5,7 @@ from trace_utils import setup_tracer, TokenTracker # opentelemetry trace tools
 
 from database.connection import create_connection_pool, close_connection_pool
 from database.conversation_history.postgres_store import PostgresConversationHistoryStore
+from cli_command_router import handle_cli_command
 from session_manager import SessionManager
 
 
@@ -37,6 +38,7 @@ try:
     print(f"Model Name: {model}")
     print(f"Skill list: {system_state.skill.skill_ids}")
     print("Key in 'quit' while you want to end the chat.")
+    print("Key in '/session help' to view Conversation History commands.")
     print("=" * 100)
 
     while True:
@@ -48,6 +50,16 @@ try:
             break
 
         if not normalized_input:
+            continue
+
+        # CLI 指令由固定 Python 邏輯處理，不進入 LLM、Skill、RAG 或 Conversation History。
+        command_result = handle_cli_command(user_query, session_manager)
+
+        if command_result.handled:
+            if command_result.output:
+                print("=" * 100)
+                print(command_result.output)
+                print("=" * 100)
             continue
 
         # 執行整個系統
