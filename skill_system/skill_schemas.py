@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -37,7 +39,8 @@ class HintResult(StrictModel):
 
 class ScriptCall(StrictModel):
     script_id: str
-    arguments: dict[str, str | int | None]
+    # LLM 可能先回傳展開的 JSON payload 實際參數白名單與 CLI 型別由 skill_tools 驗證
+    arguments: dict[str, Any]
 
 
 class ResourceRouteResult(StrictModel):

@@ -53,6 +53,7 @@ def load_skill_metadata(skills_dir = DEFAULT_SKILLS_DIR):
                 "skill_id": skill_id,
                 "name": name,
                 "description": description,
+                "capabilities": metadata.get("capabilities", []),
                 "skill_path": str(skill_path.relative_to(CURRENT_DIR)),
                 "references": metadata.get("references", {}),
                 "scripts": metadata.get("scripts", {})
@@ -99,7 +100,7 @@ def load_skill_reference(skill, reference_path):
 
 def format_skill_metadata_for_prompt(skills) -> str: # skills: dict
     # skill metadata 轉成 LLM routing prompt 可讀的文字
-    # 僅含 name, description
+    # 僅含路由需要的 name、description 與 capabilities
     block = []
 
     for skill in skills:
@@ -109,6 +110,7 @@ def format_skill_metadata_for_prompt(skills) -> str: # skills: dict
                     f"skill_id: {skill['skill_id']}",
                     f"name: {skill['name']}",
                     f"description: {skill['description']}",
+                    f"capabilities: {skill.get('capabilities', [])}",
                 ]
             )
         )

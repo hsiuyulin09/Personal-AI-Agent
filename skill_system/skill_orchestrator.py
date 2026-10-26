@@ -3,7 +3,7 @@ from llm_client import call_llm
 from trace_utils import trace_system # opentelemetry trace tools
 from skill_system.skill_prompts import build_hint_messages, build_resource_route_messages, build_context_builder_messages
 from skill_system.load_skills import get_skill_by_id, load_full_skill, load_skill_reference
-from skill_system.skill_tools import run_skill_script
+from skill_system.skill_tools import get_script_prompt_metadata, run_skill_script
 from skill_system.skill_schemas import HintResult, ResourceRouteResult, ContextBuilderResult
 from skill_system.full_table_responses import full_table_hint_response
 
@@ -40,9 +40,10 @@ def run_skill_agent_turn(user_query, context_window, client, tracer, config, age
             full_skill = load_full_skill(selected_skill)
             index_key = next(key for key in selected_skill["references"] if key.endswith("_index"))
             resource_index = load_skill_reference(selected_skill, selected_skill["references"][index_key]["path"])
+            script_prompt_metadata = get_script_prompt_metadata(selected_skill["scripts"])
 
             # resource_router: 判斷需要讀取哪些 reference，以及是否需要執行 script
-            resource_messages = build_resource_route_messages(user_query, full_skill, resource_index, selected_skill["scripts"], context_window)
+            resource_messages = build_resource_route_messages(user_query, full_skill, resource_index, script_prompt_metadata, context_window)
             resource_result = call_llm(client, tracer, resource_messages, agent_parameters, config, node_name="resource_router", token_tracker=token_tracker, response_format={"type": "json_object"}, result_model=ResourceRouteResult)
             reference_contexts = [
                 {"path": path, "content": load_skill_reference(selected_skill, path)}

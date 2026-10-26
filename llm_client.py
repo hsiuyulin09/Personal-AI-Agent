@@ -79,7 +79,6 @@ def call_llm(client, tracer, messages, parameters, config, node_name = None, tok
             span.set_attribute("input_token", response.usage.prompt_tokens)
             span.set_attribute("output_token", response.usage.completion_tokens)
             span.set_attribute("llm_token", response.usage.total_tokens)
-            span.set_status(Status(StatusCode.OK))
 
             if token_tracker:
                 token_tracker.add(response.usage.total_tokens)
@@ -88,8 +87,10 @@ def call_llm(client, tracer, messages, parameters, config, node_name = None, tok
             if result_model:
                 result = result_model.model_validate_json(content)
                 span.set_attribute("evaluate", result.model_dump_json())
+                span.set_status(Status(StatusCode.OK))
                 return result
 
+            span.set_status(Status(StatusCode.OK))
             return content
 
         except Exception as e:
