@@ -876,10 +876,6 @@ docker compose ps
 
 第一版核心程式已完成主要接線，目前重點是正式 PostgreSQL Session CLI、Context 裁切、程式重啟延續、Session 隔離與 trace 的整合驗證。RAG、長期語意記憶、多 Skill 同輪執行與 Web UI 或將於後續版本更新。
 
-## License
-
-Repository 目前未包含 `LICENSE`。原始碼可以公開閱讀，但在加入授權條款前，不代表已授權第三方重製、修改或散布。若要接受外部貢獻或允許他人重用，請先選擇並加入合適的開源授權。
-
 ## 關於作者
 
 林修渝 LIN, Hsiu-Yu
